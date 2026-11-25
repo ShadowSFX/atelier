@@ -1,6 +1,8 @@
 import { mkdirSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
+/** The renderer's inspection hook (src/renderer/terminal/registry.ts), as seen from page.evaluate. */
+declare const window: { __atelier?: { ids(): string[]; text(id: string, lines?: number): string | null } };
 import { _electron as electron, expect, test, type ElectronApplication, type Page } from '@playwright/test';
 
 /**

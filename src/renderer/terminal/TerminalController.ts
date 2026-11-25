@@ -14,7 +14,7 @@ import type { Settings } from '@shared/settings';
 import { isLocalOscHost, parseOsc7, quotePaths, shellPathToNative, type ShellKind } from '@shared/shell';
 import { api, ptyPort } from '../lib/api';
 import { confirmDialog, openMenu, t, toast, useApp } from '../state/app';
-import { patchRuntime, runtimeOf } from '../state/runtime';
+import { patchRuntime, runtimeOf, useRuntime } from '../state/runtime';
 import { findTerminal, setLastCwd } from '../state/workspace';
 import { appShortcut, runShortcut } from './shortcuts';
 import { terminalTheme } from './theme';
@@ -64,8 +64,10 @@ export class TerminalController {
   private readonly search = new SearchAddon({ highlightLimit: 2000 });
   private readonly serializer = new SerializeAddon();
   private webgl: WebglAddon | null = null;
-  private wantGpu = false;
+  /** The registry gave this terminal a WebGL slot (it is visible or recently shown). */
+  private gpuSlot = false;
   private opened = false;
+  private disposed = false;
   private started = false;
   private visible = false;
   private kind: ShellKind = 'other';
@@ -180,8 +182,9 @@ export class TerminalController {
     this.opened = true;
     const s = useApp.getState().settings;
     await loadFonts(s.fontSize, s.fontFamily);
+    if (this.disposed) return;
     this.term.open(this.host);
-    this.setGpu(this.wantGpu);
+    this.setGpu(this.gpuSlot);
     this.fitNow(true);
   }
 
@@ -191,6 +194,7 @@ export class TerminalController {
     this.started = true;
     await this.open();
     const snapshot = await api.invoke('snapshot:read', this.id);
+    if (this.disposed) return;
     if (snapshot) {
       this.term.write(snapshot);
       // Push the restored screen into scrollback: the new shell (ConPTY) clears the viewport when it starts.
@@ -215,6 +219,8 @@ export class TerminalController {
       cols: this.term.cols,
       rows: this.term.rows,
     });
+    // Closed meanwhile, or overtaken by a newer start (restart): that one reports.
+    if (this.disposed || (!r.ok && r.error === 'cancelled')) return;
     if (!r.ok) {
       patchRuntime(this.id, { status: 'failed', error: r.error });
       this.term.write(`\r\n\x1b[31m${t('term.spawnFailed', terminal.name, r.error)}\x1b[0m\r\n`);
@@ -255,11 +261,15 @@ export class TerminalController {
     return this.visible;
   }
 
-  /** GPU renderer on or off (the registry decides, within the WebGL context budget). */
-  setGpu(on: boolean): void {
-    this.wantGpu = on && useApp.getState().settings.renderer === 'gpu';
-    if (!this.opened || !this.term.element) return;
-    if (this.wantGpu && !this.webgl) {
+  /**
+   * WebGL slot on or off (the registry decides, within the WebGL context budget). The renderer setting decides
+   * whether a slot is used at all.
+   */
+  setGpu(slot: boolean): void {
+    this.gpuSlot = slot;
+    const want = slot && useApp.getState().settings.renderer === 'gpu';
+    if (!this.opened || !this.term.element || this.disposed) return;
+    if (want && !this.webgl) {
       try {
         const webgl = new WebglAddon();
         webgl.onContextLoss(() => {
@@ -275,7 +285,7 @@ export class TerminalController {
         this.webgl = null;
       }
       this.repaintSoon();
-    } else if (!this.wantGpu && this.webgl) {
+    } else if (!want && this.webgl) {
       this.webgl.dispose();
       this.webgl = null;
       this.repaintSoon();
@@ -284,6 +294,10 @@ export class TerminalController {
 
   hasGpu(): boolean {
     return this.webgl !== null;
+  }
+
+  hasGpuSlot(): boolean {
+    return this.gpuSlot;
   }
 
   /** Refit, drop cached glyphs and repaint every row on the next frame. */
@@ -301,6 +315,7 @@ export class TerminalController {
   }
 
   dispose(): void {
+    this.disposed = true;
     this.unlisten?.();
     this.observer.disconnect();
     clearTimeout(this.ackTimer);
@@ -334,7 +349,7 @@ export class TerminalController {
     o.scrollback = s.scrollback;
     o.wordSeparator = s.wordSeparators;
     this.applyTheme();
-    this.setGpu(this.wantGpu || s.renderer === 'gpu');
+    this.setGpu(this.gpuSlot);
     const apply = () => {
       o.fontFamily = fontFamily(s.fontFamily);
       o.fontSize = this.fontSize();
@@ -520,6 +535,7 @@ export class TerminalController {
     this.term.parser.registerOscHandler(133, (data) => {
       const [kind, arg] = data.split(';');
       if (kind === 'A') {
+        if (useRuntime.getState().claude[this.id]?.state) void api.invoke('claude:shell-prompt', this.id);
         const marker = this.term.registerMarker(0);
         if (marker) {
           this.prompts.push({ marker, exit: null });

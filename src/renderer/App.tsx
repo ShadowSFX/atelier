@@ -118,6 +118,7 @@ function watchStats(): void {
 
 /** Closing the window: confirm running programs, save snapshots and the workspace, then let main quit. */
 async function onClosing(): Promise<void> {
+  void api.invoke('app:closing-ack');
   if (useApp.getState().settings.confirmCloseRunning) {
     const ids = useWorkspace.getState().projects.flatMap((p) => p.terminals.map((x) => x.id));
     const busy = ids.length ? await api.invoke('pty:busy', ids) : [];

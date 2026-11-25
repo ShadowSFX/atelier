@@ -91,12 +91,19 @@ __atelier_precmd() {
   if (( EUID == 0 )); then __atelier_seg 8 15 "#"; else __atelier_seg 8 15 "\$"; fi
   local -i l=$__atelier_bg
   __atelier_ps+="%{"$'\e'"[0;$((30 + l % 8 + (l > 7 ? 60 : 0)))m%}$__atelier_arrow%{"$'\e'"[0m%} %{"$'\e'"]133;B"$'\a'"%}"
-  PROMPT=$__atelier_ps
+  # Expanded at display time and never re-scanned for $(...) (prompt_subst expands one level): a folder or branch
+  # named $(...) is shown, not run. Re-set every time in case a theme's precmd replaced it.
+  PROMPT='$__atelier_ps'
 }
 
 autoload -Uz add-zsh-hook
 add-zsh-hook preexec __atelier_preexec
 add-zsh-hook precmd __atelier_precmd
+if [[ -n $ATELIER_POWERLINE ]]; then
+  setopt prompt_subst
+else
+  PROMPT+="%{"$'\e]133;B\a'"%}" # the user's own prompt, with the end-of-prompt mark
+fi
 
 if [[ -n $ATELIER_CLAUDE_SETTINGS ]]; then
   claude() {

@@ -67,7 +67,7 @@ export function attachTerminal(id: string, container: HTMLElement): void {
   const c = ensure(id);
   c.attach(container);
   recent = [id, ...recent.filter((x) => x !== id)];
-  if (!c.hasGpu()) c.setGpu(true);
+  c.setGpu(true);
   balanceGpu();
 }
 
@@ -81,7 +81,7 @@ export function releaseTerminal(id: string, container: HTMLElement): void {
 function balanceGpu(): void {
   const visible = [...controllers.values()].filter((c) => c.isVisible()).map((c) => c.id);
   const keep = new Set([...visible, ...recent.filter((id) => !visible.includes(id)).slice(0, WEBGL_LRU_EXTRA)]);
-  for (const c of controllers.values()) if (!keep.has(c.id) && c.hasGpu()) c.setGpu(false);
+  for (const c of controllers.values()) if (!keep.has(c.id) && c.hasGpuSlot()) c.setGpu(false);
 }
 
 /** After a GPU process crash: turn WebGL back on where it belongs. */

@@ -31,7 +31,6 @@ const HOOKS: { event: string; async: boolean }[] = [
   { event: 'SessionStart', async: false },
   { event: 'UserPromptSubmit', async: false },
   { event: 'PreToolUse', async: true },
-  { event: 'PostToolUse', async: true },
   { event: 'Notification', async: true },
   { event: 'Stop', async: false },
   { event: 'SessionEnd', async: false },
@@ -44,7 +43,9 @@ function settingsJson(hookCommand: string): string {
   const hooks = Object.fromEntries(
     HOOKS.map(({ event, async }) => [event, [{ hooks: [{ type: 'command', command: hookCommand, timeout: 10, ...(async ? { async: true } : {}) }] }]]),
   );
-  return JSON.stringify({ permissions: { deny: ['ListAgents', 'SendMessage'] }, hooks }, null, 2);
+  // The atelier_* tools only reach this project's terminals: allowed without a prompt so coordination stays fluid.
+  const allow = ['atelier_peers', 'atelier_send', 'atelier_inbox', 'atelier_read_output'].map((t) => `mcp__atelier__${t}`);
+  return JSON.stringify({ permissions: { allow, deny: ['ListAgents', 'SendMessage'] }, hooks }, null, 2);
 }
 
 function mcpJson(command: string, args: string[], env: Record<string, string>): string {

@@ -85,6 +85,7 @@ function ClaudeBadge({ id }: { id: string }) {
   return (
     <button
       type="button"
+      data-claude-terminal={id}
       className={cx(s.claude, s[`claude${status.state}`])}
       title={status.queued > 0 ? `${label} · ${tr('claude.queued', status.queued)}` : label}
       onClick={(e) => {

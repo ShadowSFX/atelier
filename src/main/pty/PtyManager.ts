@@ -30,8 +30,13 @@ export interface PtyEnvProvider {
   powerline(): boolean;
 }
 
-/** Variables of Atelier's own process that must not leak into user shells. */
-const STRIP_ENV = /^(ELECTRON_|ATELIER_|CHROME_|GOOGLE_API_KEY|NODE_OPTIONS$|VSCODE_)/;
+/**
+ * Variables of Atelier's own process that must not leak into user shells: Electron's, Atelier's, and those that mark
+ * a running Claude Code session (when Atelier itself was started from one). Claude Code's configuration variables
+ * (CLAUDE_CODE_USE_BEDROCK, CLAUDE_CODE_GIT_BASH_PATH…) are kept.
+ */
+const STRIP_ENV =
+  /^(ELECTRON_|ATELIER_|CHROME_|GOOGLE_API_KEY$|NODE_OPTIONS$|VSCODE_|CLAUDECODE$|CLAUDE_CODE_(CHILD_SESSION|ENTRYPOINT|SSE_PORT|MESSAGING_SOCKET|MESSAGING_TOKEN|SESSION_ID)$)/;
 
 export function baseEnv(): Record<string, string> {
   const env: Record<string, string> = {};
@@ -63,6 +68,8 @@ export class PtyManager extends EventEmitter<{
   spawned: [id: string, projectId: string];
 }> {
   private readonly sessions = new Map<string, Session>();
+  /** Bumped by every spawn and kill of a terminal: a spawn that was overtaken while awaiting gives up. */
+  private readonly generation = new Map<string, number>();
   private port: MessagePortMain | null = null;
 
   constructor(
@@ -85,10 +92,19 @@ export class PtyManager extends EventEmitter<{
     }
   }
 
+  private bump(id: string): number {
+    const g = (this.generation.get(id) ?? 0) + 1;
+    this.generation.set(id, g);
+    return g;
+  }
+
   async spawn(req: SpawnRequest, defaultProfile: string): Promise<SpawnResult> {
     this.kill(req.terminalId); // a restart replaces the old process
+    const gen = this.bump(req.terminalId);
     const profile =
       (await this.profiles.get(req.profileId)) ?? (await this.profiles.get(await this.profiles.defaultId(defaultProfile)));
+    // Closed or restarted while the profile was being resolved: this spawn is obsolete.
+    if (this.generation.get(req.terminalId) !== gen) return { ok: false, error: 'cancelled' };
     if (!profile) return { ok: false, error: 'no-profile' };
 
     const wanted = req.cwd;
@@ -151,6 +167,7 @@ export class PtyManager extends EventEmitter<{
   }
 
   private onData(s: Session, d: string): void {
+    if (this.sessions.get(s.id) !== s) return; // output of a killed or replaced process
     s.pending += d;
     s.unacked += d.length;
     if (!s.paused && s.unacked > FLOW_HIGH_WATER) {
@@ -223,6 +240,7 @@ export class PtyManager extends EventEmitter<{
   }
 
   kill(id: string): void {
+    this.bump(id);
     const s = this.sessions.get(id);
     if (!s) return;
     this.sessions.delete(id);

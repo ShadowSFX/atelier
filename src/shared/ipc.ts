@@ -91,8 +91,12 @@ export interface Invoke {
   'window:set-chrome': (colors: { background: string; symbol: string }) => void;
   'window:set-visible-stats': (projectPath: string | null, terminalIds: string[]) => void;
   'claude:deliver-now': (terminalId: string) => void;
+  /** The shell's own prompt came back in a terminal that had a Claude session (it ended). */
+  'claude:shell-prompt': (terminalId: string) => void;
   'term:read-reply': (reqId: number, text: string | null) => void;
   'update:install': () => void;
+  /** The renderer got 'app:closing' and is handling it (it may ask the user before quitting). */
+  'app:closing-ack': () => void;
   /** Renderer finished flushing snapshots after 'app:closing'; main may quit. */
   'app:ready-to-quit': () => void;
 }

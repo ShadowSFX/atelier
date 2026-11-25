@@ -128,7 +128,8 @@ if [ "${BASH_VERSINFO[0]}" -gt 4 ] || { [ "${BASH_VERSINFO[0]}" -eq 4 ] && [ "${
   PS0='${__atelier_none:$((__atelier_start=SECONDS, 0)):0}'$'\033]133;C\007'
 fi
 PROMPT_COMMAND="__atelier_prompt${PROMPT_COMMAND:+; $PROMPT_COMMAND}"
-if [ -n "$ATELIER_POWERLINE" ]; then PS1='${__atelier_ps}'; fi
+if [ -n "$ATELIER_POWERLINE" ]; then PS1='${__atelier_ps}'
+else PS1="$PS1"$'\001\033]133;B\007\002'; fi # the user's own prompt, with the end-of-prompt mark
 
 # `claude` inside Atelier talks to the sessions of this project only (see the Atelier hub).
 if [ -n "$ATELIER_CLAUDE_SETTINGS" ]; then

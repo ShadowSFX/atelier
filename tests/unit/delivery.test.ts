@@ -76,13 +76,39 @@ describe('Delivery', () => {
     expect(writes).toHaveLength(1);
   });
 
-  it('delivers by hand even when busy', () => {
+  it('delivers by hand even when busy, but never into a permission prompt', () => {
     const { d, writes } = setup();
     d.hook('a2', 'Notification', 'permission_prompt');
     expect(d.claudeState('a2')).toBe('permission');
     d.send('A', 'a1', 'a2', 'msg');
     d.flush('a2', true);
+    expect(writes).toHaveLength(0); // Enter would answer the prompt
+    d.userInput('a2', '\r'); // the user answers it
+    expect(d.claudeState('a2')).toBe('busy');
+    d.flush('a2', true);
     expect(writes).toHaveLength(1);
+  });
+
+  it('keeps a draft typed while Claude worked, ignores focus and mouse reports', () => {
+    const { d, writes } = setup();
+    d.hook('a2', 'UserPromptSubmit');
+    d.userInput('a2', 'next question');
+    d.hook('a2', 'Stop');
+    d.send('A', 'a1', 'a2', 'msg');
+    expect(writes).toHaveLength(0); // would be merged with the draft
+    d.userInput('a2', '\x15');
+    d.userInput('a2', '\x1b[I');
+    d.userInput('a2', '\x1b[<0;10;5M');
+    d.flush('a2');
+    expect(writes).toHaveLength(1);
+  });
+
+  it('forgets the session when the shell prompt comes back', () => {
+    const { d } = setup();
+    d.hook('a2', 'SessionStart');
+    d.shellPrompt('a2');
+    expect(d.claudeState('a2')).toBeNull();
+    expect(d.send('A', 'a1', 'a2', 'x')[0]!.status).toBe('rejected');
   });
 
   it('rejects terminals without Claude, empty and oversized messages', () => {
@@ -137,11 +163,13 @@ describe('Delivery', () => {
     expect(statuses.at(-1)).toEqual({ terminalId: 'a2', state: null, queued: 0 });
   });
 
-  it('strips ESC from messages so they cannot break out of the paste', () => {
+  it('strips control characters so a message cannot break out of the paste', () => {
     const { d, writes } = setup();
     d.hook('a2', 'SessionStart');
-    d.send('A', 'a1', 'a2', 'evil\x1b[201~\rrm -rf /');
+    d.send('A', 'a1', 'a2', 'evil\x1b[201~\rrm -rf /\x03\x9b201~ ok\nline 2');
     const body = writes[0]!.data.slice(6, -6);
-    expect(body).not.toContain('\x1b');
+    // eslint-disable-next-line no-control-regex
+    expect(body).not.toMatch(/[\x00-\x08\x0b-\x1f\x7f-\x9f]/);
+    expect(body).toContain('line 2');
   });
 });

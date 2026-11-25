@@ -154,6 +154,8 @@ async function main(): Promise<void> {
     delivery.terminalGone(id);
   };
   ptys.on('input', (id, data) => delivery.userInput(id, data));
+  // A (re)started shell has no Claude session yet, whatever ran there before.
+  ptys.on('spawned', (id) => delivery.terminalGone(id));
   ptys.on('exit', (id) => forget(id));
   const killTerminal = (id: string) => {
     ptys.kill(id);
@@ -208,12 +210,16 @@ async function main(): Promise<void> {
 
   // Closing: the renderer asks about running programs and saves snapshots, then calls app:ready-to-quit.
   let quitting = false;
+  let closeAcked = false;
   win.on('close', (e) => {
     if (quitting) return;
     // A crashed page can't answer: quit directly.
     if (!win || win.webContents.isCrashed()) return;
     e.preventDefault();
+    closeAcked = false;
     send(win, 'app:closing');
+    // A page that is still booting or hung never answers: don't keep the window open forever.
+    setTimeout(() => !closeAcked && !quitting && finishQuit(), 3000);
   });
   const finishQuit = () => {
     quitting = true;
@@ -285,6 +291,7 @@ async function main(): Promise<void> {
   });
   handle('window:set-visible-stats', (path, ids) => stats.watch(path, ids));
   handle('claude:deliver-now', (id) => delivery.flush(id, true));
+  handle('claude:shell-prompt', (id) => delivery.shellPrompt(id));
   handle('term:read-reply', (id, text) => {
     readRequests.get(id)?.(text);
     readRequests.delete(id);
@@ -296,6 +303,7 @@ async function main(): Promise<void> {
     killAll();
     updater.install();
   });
+  handle('app:closing-ack', () => void (closeAcked = true));
   handle('app:ready-to-quit', () => finishQuit());
 
   if (devUrl) await win.loadURL(devUrl);
