@@ -109,6 +109,7 @@ export async function loadApp(): Promise<void> {
     .matchMedia('(prefers-color-scheme: dark)')
     .addEventListener('change', (e) => useApp.setState({ dark: e.matches }));
   api.on('update:status', (update) => useApp.setState({ update }));
+  if (info.dataFallback) toast(t('data.notPortable', info.dataDir), 'error');
 }
 
 export async function saveSettings(patch: SettingsPatch): Promise<void> {

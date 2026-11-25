@@ -63,9 +63,14 @@ export interface StatsSnapshot {
   terminals: TerminalStats[];
 }
 
+/**
+ * available: downloading; downloaded: installs on restart or quit; manual: a newer version exists but can't be
+ * installed here (the exe's folder is read-only) — `url` is where to download it.
+ */
 export interface UpdateStatus {
-  state: 'idle' | 'available' | 'downloaded' | 'error';
+  state: 'idle' | 'available' | 'downloaded' | 'manual' | 'error';
   version?: string;
+  url?: string;
 }
 
 export interface Invoke {
@@ -76,6 +81,10 @@ export interface Invoke {
     home: string;
     locale: string;
     dev: boolean;
+    /** Where settings, workspace and snapshots are kept. */
+    dataDir: string;
+    /** The portable exe's folder couldn't be written: data went to AppData instead. */
+    dataFallback: boolean;
   };
   'workspace:load': () => Workspace;
   /** The renderer owns the live workspace; main validates, persists (debounced) and mirrors it for the hub. */
@@ -107,11 +116,13 @@ export interface Invoke {
   /** The user looked at a terminal whose Claude session finished (done → idle). */
   'claude:seen': (terminalId: string) => void;
   'term:read-reply': (reqId: number, text: string | null) => void;
-  'update:install': () => void;
   /** The renderer got 'app:closing' and is handling it (it may ask the user before quitting). */
   'app:closing-ack': () => void;
-  /** Renderer finished flushing snapshots after 'app:closing'; main may quit. */
-  'app:ready-to-quit': () => void;
+  /**
+   * Renderer finished flushing snapshots after 'app:closing' (or the user chose "Restart" on a downloaded update);
+   * main may quit. `restart` relaunches Atelier with the update installed.
+   */
+  'app:ready-to-quit': (restart?: boolean) => void;
 }
 
 export interface Events {

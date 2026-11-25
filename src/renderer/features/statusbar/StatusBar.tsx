@@ -3,6 +3,7 @@ import { cx } from '../../components/Button';
 import { api } from '../../lib/api';
 import { bytes, percent } from '../../lib/format';
 import { useApp, useT } from '../../state/app';
+import { closeApp } from '../../state/quit';
 import { useRuntime } from '../../state/runtime';
 import { activeProject, focusedTerminalId, useWorkspace } from '../../state/workspace';
 import s from './StatusBar.module.css';
@@ -83,10 +84,22 @@ export function StatusBar() {
         </span>
       )}
       {update.state === 'downloaded' && (
-        <span className={s.update}>
+        <span className={s.update} title={t('status.updateTip')}>
           {t('status.update', update.version ?? '')}
-          <button type="button" className={s.updateBtn} onClick={() => void api.invoke('update:install')}>
+          <button type="button" className={s.updateBtn} onClick={() => void closeApp(true)}>
             {t('status.restart')}
+          </button>
+        </span>
+      )}
+      {update.state === 'manual' && update.url && (
+        <span className={s.update} title={t('status.updateManualTip')}>
+          {t('status.updateAvailable', update.version ?? '')}
+          <button
+            type="button"
+            className={s.updateBtn}
+            onClick={() => void api.invoke('shell:open-external', update.url!)}
+          >
+            {t('status.download')}
           </button>
         </span>
       )}

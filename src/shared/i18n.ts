@@ -129,6 +129,20 @@ export const STRINGS = {
   ],
   'status.update': ['Versión {0} lista', 'Version {0} ready'],
   'status.restart': ['Reiniciar', 'Restart'],
+  'status.updateTip': [
+    'Se instala al reiniciar Atelier (o la próxima vez que lo cierres).',
+    'It installs when Atelier restarts (or the next time you close it).',
+  ],
+  'status.updateAvailable': ['Versión {0} disponible', 'Version {0} available'],
+  'status.updateManualTip': [
+    'La carpeta de Atelier es de solo lectura: descarga la versión nueva desde GitHub y reemplaza Atelier.exe.',
+    "Atelier's folder is read-only: download the new version from GitHub and replace Atelier.exe.",
+  ],
+  'status.download': ['Descargar', 'Download'],
+  'data.notPortable': [
+    'No se puede escribir en la carpeta de Atelier.exe: los datos se guardan en {0}.',
+    "Atelier.exe's folder can't be written: data is saved in {0}.",
+  ],
 
   // Palette
   'palette.placeholder': [

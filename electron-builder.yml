@@ -31,18 +31,17 @@ electronFuses:
   enableNodeCliInspectArguments: false
 
 win:
+  # A single portable Atelier.exe: no installer, data in an "Atelier.data" folder next to it, self-updates from GitHub
+  # Releases (src/main/portableUpdater.ts). The fixed name is what the updater looks for in a release.
   target:
-    - target: nsis
+    - target: portable
       arch: [x64]
   icon: resources/icon.ico
-  artifactName: Atelier-Setup-${version}.${ext}
+  artifactName: Atelier.exe
 
-nsis:
-  oneClick: true
-  perMachine: false
-  allowElevation: false
-  deleteAppDataOnUninstall: false
-  shortcutName: Atelier
+portable:
+  # No unpackDirName: each launch unpacks into its own temp folder, so a second launch never wipes a running copy.
+  requestExecutionLevel: user
 
 linux:
   target:

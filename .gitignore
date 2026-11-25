@@ -9,3 +9,4 @@ playwright-report/
 spikes/
 .DS_Store
 *.tsbuildinfo
+Atelier.data/

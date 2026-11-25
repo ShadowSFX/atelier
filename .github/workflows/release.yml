@@ -1,7 +1,7 @@
 name: Release
 
-# Push a tag like v1.2.3: builds the Windows installer and the Linux AppImage/.deb and publishes them (with the
-# latest*.yml files the auto-updater reads) as a GitHub Release.
+# Push a tag like v1.2.3: builds the portable Windows Atelier.exe (+ Atelier.exe.sha256, which its self-updater
+# verifies) and the Linux AppImage/.deb (+ latest-linux.yml for electron-updater) and publishes them as a GitHub Release.
 on:
   push:
     tags: ['v*.*.*']
@@ -38,3 +38,14 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: npx electron-vite build && npx electron-builder --publish always
+
+      # The portable exe's self-updater (src/main/portableUpdater.ts) only installs a release that has this file.
+      - name: Checksum for the Windows updater
+        if: runner.os == 'Windows'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $hash = (Get-FileHash release/Atelier.exe -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$hash  Atelier.exe" | Out-File -FilePath release/Atelier.exe.sha256 -Encoding ascii -NoNewline
+          gh release upload "$env:GITHUB_REF_NAME" release/Atelier.exe.sha256 --clobber

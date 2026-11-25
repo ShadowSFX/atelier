@@ -12,7 +12,11 @@ Atelier terminal talk only to the sessions of their own project (the "hub").
   draws on a canvas). `ATELIER_E2E_CLAUDE=1 npm run e2e` also runs two real Claude Code sessions through the hub
   (uses the API). Note: the app asks before closing terminals that run programs; tests destroy the window instead.
 - Packages: `npm run dist` / `dist:win` / `dist:linux` — the owner's call, not Claude's. Release: push tag `vX.Y.Z`
-  (`.github/workflows/release.yml` publishes installer + AppImage + deb + latest*.yml for the auto-updater).
+  (`.github/workflows/release.yml` publishes `Atelier.exe` + `Atelier.exe.sha256` + AppImage + deb + latest-linux.yml).
+- Windows ships as ONE portable `Atelier.exe` (no installer). Its stub unpacks the app to %TEMP% on every launch
+  (silently) and sets `PORTABLE_EXECUTABLE_DIR/FILE`. Data lives in `Atelier.data\` next to the exe
+  (`main/dataDir.ts`, imported first; AppData only when that folder isn't writable; `ATELIER_USER_DATA` wins).
+  Self-update: `main/portableUpdater.ts` (GitHub → `.new` verified by SHA-256 → renamed in on restart/quit).
 
 ## Layout
 - `src/shared` — pure logic, tested: IPC contract (`ipc.ts`, the only one), workspace model + ≤3-column layout

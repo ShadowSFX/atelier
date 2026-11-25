@@ -1,3 +1,5 @@
+// Must stay first: it sets the data folder (portable exe) before anything else asks Electron for paths.
+import { dataInfo } from './dataDir';
 import { existsSync, statSync, writeFileSync } from 'node:fs';
 import { homedir, hostname } from 'node:os';
 import { join, resolve } from 'node:path';
@@ -38,8 +40,9 @@ function directoryArg(argv: string[], cwd: string): string | null {
   return null;
 }
 
-// End-to-end tests run against a throwaway profile (never the user's projects).
-if (process.env.ATELIER_USER_DATA) app.setPath('userData', process.env.ATELIER_USER_DATA);
+// The data folder is set by ./dataDir (ATELIER_USER_DATA for end-to-end tests, or the portable folder).
+for (const note of dataInfo.notes) log.info(`data: ${note}`);
+if (dataInfo.fallback) log.warn(`data: the exe's folder isn't writable, using ${dataInfo.dir}`);
 
 if (!app.requestSingleInstanceLock()) {
   app.quit();
@@ -191,6 +194,7 @@ async function main(): Promise<void> {
 
   let loads = 0;
   win.webContents.on('did-finish-load', () => {
+    send(win, 'update:status', updater.status());
     // A reload loses every xterm: the renderer starts its terminals again from the workspace.
     if (loads++ > 0) killAll();
     const { port1, port2 } = new MessageChannelMain();
@@ -230,14 +234,17 @@ async function main(): Promise<void> {
     closeAcked = false;
     send(win, 'app:closing');
     // A page that is still booting or hung never answers: don't keep the window open forever.
-    setTimeout(() => !closeAcked && !quitting && finishQuit(), 3000);
+    setTimeout(() => !closeAcked && !quitting && finishQuit(false), 3000);
   });
-  const finishQuit = () => {
+  /** `restart`: the user chose "Restart" on a downloaded update. A plain quit installs it too, silently. */
+  const finishQuit = (restart: boolean) => {
+    if (quitting) return;
     quitting = true;
     settings.flushPending();
     workspace.flushPending();
     killAll();
     hub.stop();
+    updater.apply(restart);
     win?.destroy();
     app.quit();
   };
@@ -251,6 +258,8 @@ async function main(): Promise<void> {
     home: homedir(),
     locale: app.getLocale(),
     dev: !app.isPackaged,
+    dataDir: dataInfo.dir,
+    dataFallback: dataInfo.fallback,
   }));
   handle('workspace:load', () => workspace.get());
   handle('workspace:save', (ws) => workspace.set(parseWorkspace(ws)));
@@ -308,15 +317,8 @@ async function main(): Promise<void> {
     readRequests.get(id)?.(text);
     readRequests.delete(id);
   });
-  handle('update:install', () => {
-    quitting = true;
-    settings.flushPending();
-    workspace.flushPending();
-    killAll();
-    updater.install();
-  });
   handle('app:closing-ack', () => void (closeAcked = true));
-  handle('app:ready-to-quit', () => finishQuit());
+  handle('app:ready-to-quit', (restart) => finishQuit(restart === true));
 
   if (devUrl) await win.loadURL(devUrl);
   else await win.loadFile(join(__dirname, '../renderer/index.html'));

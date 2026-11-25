@@ -9,7 +9,8 @@ import { Sidebar } from './features/sidebar/Sidebar';
 import { StatusBar } from './features/statusbar/StatusBar';
 import { TitleBar } from './features/titlebar/TitleBar';
 import { api } from './lib/api';
-import { confirmDialog, saveSettings, t, useApp } from './state/app';
+import { saveSettings, useApp } from './state/app';
+import { closeApp } from './state/quit';
 import {
   activeProject,
   closeTerminal,
@@ -19,17 +20,10 @@ import {
   focusedTerminalId,
   newTerminalInActive,
   pickAndAddProject,
-  saveWorkspaceNow,
   splitActive,
   useWorkspace,
 } from './state/workspace';
-import {
-  applySettingsToAll,
-  applyThemeToAll,
-  getController,
-  restoreGpu,
-  saveSnapshots,
-} from './terminal/registry';
+import { applySettingsToAll, applyThemeToAll, getController, restoreGpu } from './terminal/registry';
 import { appShortcut, runShortcut, setShortcutRunner, type Shortcut } from './terminal/shortcuts';
 import s from './App.module.css';
 
@@ -76,7 +70,7 @@ function useAppEffects(): void {
         const c = getController(terminalId);
         void api.invoke('term:read-reply', reqId, c ? c.text(lines) : null);
       }),
-      api.on('app:closing', () => void onClosing()),
+      api.on('app:closing', onClosing),
       // Settings changed (here or from another place): every terminal follows.
       useApp.subscribe((st, prev) => {
         if (st.settings !== prev.settings) {
@@ -129,32 +123,10 @@ function watchStats(): void {
   void api.invoke('window:set-visible-stats', p?.path ?? null, p?.terminals.map((x) => x.id) ?? []);
 }
 
-/** Closing the window: confirm running programs, save snapshots and the workspace, then let main quit. */
-async function onClosing(): Promise<void> {
+/** Main asks before closing the window (it may be answered with a confirmation). */
+function onClosing(): void {
   void api.invoke('app:closing-ack');
-  if (useApp.getState().settings.confirmCloseRunning) {
-    const ids = useWorkspace.getState().projects.flatMap((p) => p.terminals.map((x) => x.id));
-    const busy = ids.length ? await api.invoke('pty:busy', ids) : [];
-    if (busy.length > 0) {
-      const names = useWorkspace
-        .getState()
-        .projects.flatMap((p) => p.terminals)
-        .filter((x) => busy.includes(x.id))
-        .map((x) => x.name);
-      const ok = await confirmDialog({
-        title: t('terminals.closeRunning', names.join(', ')),
-        ok: t('common.close'),
-        danger: true,
-      });
-      if (!ok) return;
-    }
-  }
-  try {
-    await saveSnapshots(true);
-    await saveWorkspaceNow();
-  } finally {
-    void api.invoke('app:ready-to-quit');
-  }
+  void closeApp();
 }
 
 function SidebarSplitter() {
