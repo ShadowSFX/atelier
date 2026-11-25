@@ -17,6 +17,8 @@ Atelier terminal talk only to the sessions of their own project (the "hub").
   (silently) and sets `PORTABLE_EXECUTABLE_DIR/FILE`. Data lives in `Atelier.data\` next to the exe
   (`main/dataDir.ts`, imported first; AppData only when that folder isn't writable; `ATELIER_USER_DATA` wins).
   Self-update: `main/portableUpdater.ts` (GitHub → `.new` verified by SHA-256 → renamed in on restart/quit).
+  0.1.0 was an NSIS install: releases still carry `Atelier-Setup-x.exe` + `latest.yml` for it; the installed copy
+  swaps its own Atelier.exe for the portable one and the portable exe removes the setup's files and registry keys.
 
 ## Layout
 - `src/shared` — pure logic, tested: IPC contract (`ipc.ts`, the only one), workspace model + ≤3-column layout

@@ -101,11 +101,16 @@ export function parseRelease(json: string): ReleaseInfo | null {
   };
 }
 
-/** The update to install, or null (draft, prerelease, not newer, or a missing asset). */
-export function planUpdate(current: string, release: ReleaseInfo | null): UpdatePlan | null {
+/**
+ * The update to install, or null (draft, prerelease, not newer, or a missing asset). `allowSame` also takes the
+ * current version: an installed copy (old NSIS setup) replaces itself with the portable exe of its own version.
+ */
+export function planUpdate(current: string, release: ReleaseInfo | null, allowSame = false): UpdatePlan | null {
   if (!release || release.draft || release.prerelease) return null;
   if (parseVersion(release.version)?.pre) return null;
-  if (!parseVersion(current) || compareVersions(release.version, current) <= 0) return null;
+  if (!parseVersion(current)) return null;
+  const cmp = compareVersions(release.version, current);
+  if (cmp < 0 || (cmp === 0 && !allowSame)) return null;
   const find = (name: string) => release.assets.find((a) => a.name.toLowerCase() === name.toLowerCase());
   const exe = find(EXE_ASSET);
   const checksum = find(CHECKSUM_ASSET);

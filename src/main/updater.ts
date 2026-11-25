@@ -1,8 +1,11 @@
+import { existsSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 import { app } from 'electron';
 import { autoUpdater } from 'electron-updater';
 import type { UpdateStatus } from '@shared/ipc';
+import { NSIS_UNINSTALLER } from '@shared/portable';
 import { log } from './log';
-import { PortableUpdater } from './portableUpdater';
+import { PortableUpdater, removeInstallerLeftovers } from './portableUpdater';
 
 const CHECK_EVERY_MS = 4 * 60 * 60 * 1000;
 const FIRST_CHECK_MS = 10_000;
@@ -16,7 +19,8 @@ export interface Updater {
 
 /**
  * Updates from GitHub Releases. Windows: the portable Atelier.exe updates itself (PortableUpdater) — the download is
- * staged next to the exe and swapped in on "Restart" or on the next quit. Linux: only the AppImage self-updates
+ * staged next to the exe and swapped in on "Restart" or on the next quit; a copy installed by the old setup swaps its
+ * Atelier.exe for the portable one the same way. Linux: only the AppImage self-updates
  * (electron-updater); .deb installs are updated by the package manager. Development builds never update.
  */
 export function startUpdater(onStatus: (s: UpdateStatus) => void): Updater {
@@ -28,9 +32,16 @@ export function startUpdater(onStatus: (s: UpdateStatus) => void): Updater {
   const none: Updater = { status: () => last, apply: () => undefined };
   if (!app.isPackaged) return none;
 
-  const portableExe = process.platform === 'win32' ? process.env.PORTABLE_EXECUTABLE_FILE : undefined;
-  if (portableExe) {
-    const updater = new PortableUpdater(portableExe, report);
+  if (process.platform === 'win32') {
+    const portableExe = process.env.PORTABLE_EXECUTABLE_FILE;
+    // A copy installed by the old NSIS setup turns itself into the portable exe (see NSIS_UNINSTALLER).
+    const installed = existsSync(join(dirname(process.execPath), NSIS_UNINSTALLER));
+    if (!portableExe && !installed) return none;
+    const updater = new PortableUpdater(portableExe ?? process.execPath, report, !portableExe);
+    if (portableExe)
+      void removeInstallerLeftovers(dirname(portableExe)).catch((err: unknown) =>
+        log.warn('removing the old installed copy failed', err),
+      );
     void updater.cleanup().then(() => {
       setTimeout(() => void updater.check(), FIRST_CHECK_MS);
       setInterval(() => void updater.check(), CHECK_EVERY_MS);

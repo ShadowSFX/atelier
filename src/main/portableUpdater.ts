@@ -1,4 +1,4 @@
-import { spawn } from 'node:child_process';
+import { execFile, spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import {
   createReadStream,
@@ -9,13 +9,21 @@ import {
   rmSync,
   writeFileSync,
 } from 'node:fs';
-import { rm } from 'node:fs/promises';
-import { basename, dirname } from 'node:path';
+import { readdir, rm } from 'node:fs/promises';
+import { basename, dirname, join } from 'node:path';
 import { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
+import { promisify } from 'node:util';
 import type { ReadableStream as WebReadableStream } from 'node:stream/web';
 import { app, net } from 'electron';
 import type { UpdateStatus } from '@shared/ipc';
+import {
+  installerLeftovers,
+  NSIS_APP_KEY,
+  NSIS_UNINSTALL_KEY,
+  NSIS_UNINSTALLER,
+  regValue,
+} from '@shared/portable';
 import {
   compareVersions,
   parseChecksum,
@@ -33,6 +41,10 @@ import { log } from './log';
  * check GitHub → download next to the exe → verify SHA-256 → stage as `Atelier.exe.new` → swap on restart or quit.
  * Windows lets a running exe be renamed, which is what makes the in-place swap possible. The exe here is the
  * portable launcher (PORTABLE_EXECUTABLE_FILE), not the copy unpacked in %TEMP% that actually runs.
+ *
+ * `migrate`: this is a copy installed by the old NSIS setup (`exe` is its Atelier.exe). It stages the portable exe even
+ * of its own version, so the swap turns the install into the portable exe; that one then removes the setup's files
+ * (removeInstallerLeftovers).
  */
 export class PortableUpdater {
   private readonly exe: string;
@@ -49,6 +61,7 @@ export class PortableUpdater {
   constructor(
     exe: string,
     private readonly onStatus: (s: UpdateStatus) => void,
+    private readonly migrate = false,
   ) {
     this.exe = exe;
     this.dir = dirname(exe);
@@ -71,7 +84,8 @@ export class PortableUpdater {
     try {
       if (!existsSync(this.staged)) return;
       const version = existsSync(this.stagedVersion) ? readFileSync(this.stagedVersion, 'utf8').trim() : '';
-      if (version && compareVersions(version, this.current) > 0) {
+      const cmp = version ? compareVersions(version, this.current) : -1;
+      if (cmp > 0 || (cmp === 0 && this.migrate)) {
         this.ready = version;
         this.onStatus({ state: 'downloaded', version });
       } else {
@@ -95,7 +109,7 @@ export class PortableUpdater {
       const res = await net.fetch(RELEASES_API, { headers, cache: 'no-store' });
       if (res.status === 304 || res.status === 404) return; // unchanged, or no release yet
       if (!res.ok) throw new Error(`GitHub answered ${res.status}`);
-      const plan = planUpdate(this.current, parseRelease(await res.text()));
+      const plan = planUpdate(this.current, parseRelease(await res.text()), this.migrate);
       if (!plan) {
         this.etag = res.headers.get('etag');
         return;
@@ -183,6 +197,50 @@ export class PortableUpdater {
     }
     log.info(`updated ${basename(this.exe)} to ${this.ready ?? '?'}`);
     return true;
+  }
+}
+
+/**
+ * Run by the portable exe at startup: when its folder is an old NSIS install (the installed copy swapped itself for
+ * this exe), forgets the install in the registry, so "Uninstall" can't wipe the folder with the exe and its data, and
+ * deletes Electron's files. The uninstaller goes last: while anything is left (a file still locked), the next start
+ * tries again.
+ */
+export async function removeInstallerLeftovers(dir: string): Promise<void> {
+  const uninstaller = join(dir, NSIS_UNINSTALLER);
+  if (!existsSync(uninstaller)) return;
+  log.info(`removing the old installed copy's files from ${dir}`);
+  let clean = await forgetInstall(uninstaller);
+  for (const name of installerLeftovers(await readdir(dir))) {
+    try {
+      await rm(join(dir, name), { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
+    } catch (err) {
+      clean = false;
+      log.warn(`could not remove ${name}`, err);
+    }
+  }
+  if (clean) await rm(uninstaller, { force: true, maxRetries: 10, retryDelay: 200 });
+}
+
+/** Deletes the setup's registry keys when they belong to this folder. False when that failed. */
+async function forgetInstall(uninstaller: string): Promise<boolean> {
+  const reg = (...args: string[]) => promisify(execFile)('reg', args, { windowsHide: true });
+  let uninstall: string | null;
+  try {
+    uninstall = regValue((await reg('query', NSIS_UNINSTALL_KEY, '/v', 'UninstallString')).stdout, 'UninstallString');
+  } catch {
+    return true; // no such key
+  }
+  // Another install of Atelier (another folder) keeps its entry.
+  if (!uninstall?.toLowerCase().includes(uninstaller.toLowerCase())) return true;
+  try {
+    await reg('delete', NSIS_UNINSTALL_KEY, '/f');
+    await reg('delete', NSIS_APP_KEY, '/f').catch(() => undefined);
+    log.info('removed the old setup from installed apps');
+    return true;
+  } catch (err) {
+    log.warn('could not remove the old setup from installed apps', err);
+    return false;
   }
 }
 

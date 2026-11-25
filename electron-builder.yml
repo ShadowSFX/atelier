@@ -33,15 +33,28 @@ electronFuses:
 win:
   # A single portable Atelier.exe: no installer, data in an "Atelier.data" folder next to it, self-updates from GitHub
   # Releases (src/main/portableUpdater.ts). The fixed name is what the updater looks for in a release.
+  # The NSIS setup (+ latest.yml) is only the way out for copies installed by Atelier 0.1.0: their electron-updater
+  # installs it, and the installed version then replaces itself with the portable exe (NSIS_UNINSTALLER in
+  # src/shared/portable.ts). Keep its settings as they were in 0.1.0 so it updates that install in place.
   target:
     - target: portable
       arch: [x64]
+    - target: nsis
+      arch: [x64]
   icon: resources/icon.ico
-  artifactName: Atelier.exe
 
 portable:
   # No unpackDirName: each launch unpacks into its own temp folder, so a second launch never wipes a running copy.
   requestExecutionLevel: user
+  artifactName: Atelier.exe
+
+nsis:
+  oneClick: true
+  perMachine: false
+  allowElevation: false
+  deleteAppDataOnUninstall: false
+  shortcutName: Atelier
+  artifactName: Atelier-Setup-${version}.${ext}
 
 linux:
   target:

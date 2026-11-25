@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { resolveDataDir } from '@shared/portable';
+import { installerLeftovers, regValue, resolveDataDir } from '@shared/portable';
 import {
   CHECKSUM_ASSET,
   compareVersions,
@@ -104,6 +104,67 @@ describe('planUpdate', () => {
     expect(planUpdate('garbage', release())).toBeNull();
     expect(planUpdate('1.1.0', release({ assets: [release().assets[0]!] }))).toBeNull();
     expect(planUpdate('1.1.0', release({ assets: [release().assets[1]!] }))).toBeNull();
+  });
+
+  it('takes the same version when an installed copy moves to the portable exe', () => {
+    expect(planUpdate('1.2.0', release(), true)?.exe.name).toBe(EXE_ASSET);
+    expect(planUpdate('1.1.0', release(), true)).not.toBeNull();
+    expect(planUpdate('1.3.0', release(), true)).toBeNull();
+    expect(planUpdate('1.2.0', release({ prerelease: true }), true)).toBeNull();
+  });
+});
+
+describe('old NSIS install', () => {
+  it("picks Electron's files and keeps the portable exe, its updates, its data and the uninstaller", () => {
+    const listing = [
+      'Atelier.exe',
+      'Atelier.exe.old',
+      'Atelier.exe.new',
+      'Atelier.exe.new.version',
+      'Atelier.data',
+      'Uninstall Atelier.exe',
+      'LICENSE.electron.txt',
+      'LICENSES.chromium.html',
+      'chrome_100_percent.pak',
+      'resources.pak',
+      'd3dcompiler_47.dll',
+      'ffmpeg.dll',
+      'icudtl.dat',
+      'snapshot_blob.bin',
+      'v8_context_snapshot.bin',
+      'vk_swiftshader_icd.json',
+      'locales',
+      'resources',
+      'notes.txt',
+    ];
+    expect(installerLeftovers(listing).sort()).toEqual(
+      [
+        'LICENSE.electron.txt',
+        'LICENSES.chromium.html',
+        'chrome_100_percent.pak',
+        'resources.pak',
+        'd3dcompiler_47.dll',
+        'ffmpeg.dll',
+        'icudtl.dat',
+        'snapshot_blob.bin',
+        'v8_context_snapshot.bin',
+        'vk_swiftshader_icd.json',
+        'locales',
+        'resources',
+      ].sort(),
+    );
+  });
+
+  it('reads a value from reg query output', () => {
+    const value = String.raw`"C:\Users\x\AppData\Local\Programs\atelier\Uninstall Atelier.exe" /currentuser`;
+    const out = [
+      '',
+      String.raw`HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Uninstall\cddcd890-f17a-5c91-ad60-14a0f658b8ee`,
+      `    UninstallString    REG_SZ    ${value}`,
+      '',
+    ].join('\r\n');
+    expect(regValue(out, 'UninstallString')).toBe(value);
+    expect(regValue(out, 'DisplayName')).toBeNull();
   });
 });
 

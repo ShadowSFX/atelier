@@ -1,7 +1,8 @@
 name: Release
 
 # Push a tag like v1.2.3: builds the portable Windows Atelier.exe (+ Atelier.exe.sha256, which its self-updater
-# verifies) and the Linux AppImage/.deb (+ latest-linux.yml for electron-updater) and publishes them as a GitHub Release.
+# verifies), the NSIS setup + latest.yml (only so copies installed by 0.1.0 can move to the portable exe) and the
+# Linux AppImage/.deb (+ latest-linux.yml for electron-updater) and publishes them as a GitHub Release.
 on:
   push:
     tags: ['v*.*.*']
