@@ -20,7 +20,12 @@ export function IconButton({
   className,
   children,
   ...rest
-}: ButtonHTMLAttributes<HTMLButtonElement> & { label: string; size?: 'sm' | 'md'; on?: boolean; children: ReactNode }) {
+}: ButtonHTMLAttributes<HTMLButtonElement> & {
+  label: string;
+  size?: 'sm' | 'md';
+  on?: boolean;
+  children: ReactNode;
+}) {
   return (
     <button
       type="button"

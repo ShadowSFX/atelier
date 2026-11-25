@@ -1,9 +1,22 @@
-import { Add16Regular, FolderAdd16Regular, Search16Regular, Settings16Regular, SplitVertical16Regular } from '@fluentui/react-icons';
+import {
+  Add16Regular,
+  FolderAdd16Regular,
+  Search16Regular,
+  Settings16Regular,
+  SplitVertical16Regular,
+} from '@fluentui/react-icons';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { cx } from '../../components/Button';
 import { shortPath } from '../../lib/format';
 import { useApp, useT } from '../../state/app';
-import { activateProject, newTerminalInActive, pickAndAddProject, selectTerminal, splitActive, useWorkspace } from '../../state/workspace';
+import {
+  activateProject,
+  newTerminalInActive,
+  pickAndAddProject,
+  selectTerminal,
+  splitActive,
+  useWorkspace,
+} from '../../state/workspace';
 import s from './CommandPalette.module.css';
 
 interface Entry {
@@ -51,16 +64,57 @@ function Palette() {
       }
     }
     for (const p of projects) {
-      out.push({ key: p.id, title: p.name, sub: p.path, kind: t('palette.project'), color: p.color, run: () => activateProject(p.id) });
+      out.push({
+        key: p.id,
+        title: p.name,
+        sub: p.path,
+        kind: t('palette.project'),
+        color: p.color,
+        run: () => activateProject(p.id),
+      });
     }
     out.push(
-      { key: 'a:new', title: t('terminals.new'), sub: 'Ctrl+Shift+T', kind: t('palette.action'), icon: <Add16Regular />, run: () => newTerminalInActive() },
-      { key: 'a:split', title: t('pane.split'), sub: 'Ctrl+Shift+5', kind: t('palette.action'), icon: <SplitVertical16Regular />, run: splitActive },
-      { key: 'a:project', title: t('projects.add'), sub: 'Ctrl+Shift+O', kind: t('palette.action'), icon: <FolderAdd16Regular />, run: () => void pickAndAddProject() },
-      { key: 'a:settings', title: t('settings.title'), sub: 'Ctrl+,', kind: t('palette.action'), icon: <Settings16Regular />, run: () => useApp.setState({ settingsOpen: true }) },
+      {
+        key: 'a:new',
+        title: t('terminals.new'),
+        sub: 'Ctrl+Shift+T',
+        kind: t('palette.action'),
+        icon: <Add16Regular />,
+        run: () => newTerminalInActive(),
+      },
+      {
+        key: 'a:split',
+        title: t('pane.split'),
+        sub: 'Ctrl+Shift+5',
+        kind: t('palette.action'),
+        icon: <SplitVertical16Regular />,
+        run: splitActive,
+      },
+      {
+        key: 'a:project',
+        title: t('projects.add'),
+        sub: 'Ctrl+Shift+O',
+        kind: t('palette.action'),
+        icon: <FolderAdd16Regular />,
+        run: () => void pickAndAddProject(),
+      },
+      {
+        key: 'a:settings',
+        title: t('settings.title'),
+        sub: 'Ctrl+,',
+        kind: t('palette.action'),
+        icon: <Settings16Regular />,
+        run: () => useApp.setState({ settingsOpen: true }),
+      },
     );
     for (const prof of useApp.getState().profiles) {
-      out.push({ key: `a:p:${prof.id}`, title: `${t('terminals.new')}: ${prof.name}`, kind: t('palette.action'), icon: <Add16Regular />, run: () => newTerminalInActive({ profileId: prof.id }) });
+      out.push({
+        key: `a:p:${prof.id}`,
+        title: `${t('terminals.new')}: ${prof.name}`,
+        kind: t('palette.action'),
+        icon: <Add16Regular />,
+        run: () => newTerminalInActive({ profileId: prof.id }),
+      });
     }
     return out;
   }, [projects, t, home]);
@@ -121,7 +175,11 @@ function Palette() {
               onPointerMove={() => i !== current && setIndex(i)}
               onClick={() => run(e)}
             >
-              {e.icon ? <span className={s.tile}>{e.icon}</span> : <span className={s.colorBar} style={e.color ? { background: e.color } : undefined} />}
+              {e.icon ? (
+                <span className={s.tile}>{e.icon}</span>
+              ) : (
+                <span className={s.colorBar} style={e.color ? { background: e.color } : undefined} />
+              )}
               <span className={s.text}>
                 <span className={s.title}>{e.title}</span>
                 {e.sub && <span className={s.sub}>{e.sub}</span>}

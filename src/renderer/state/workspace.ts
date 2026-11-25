@@ -30,7 +30,10 @@ export function activeProject(ws: Workspace = useWorkspace.getState()): Project 
   return ws.projects.find((p) => p.id === ws.activeProjectId) ?? null;
 }
 
-export function findTerminal(id: string, ws: Workspace = useWorkspace.getState()): { project: Project; terminal: TerminalSpec } | null {
+export function findTerminal(
+  id: string,
+  ws: Workspace = useWorkspace.getState(),
+): { project: Project; terminal: TerminalSpec } | null {
   for (const project of ws.projects) {
     const terminal = project.terminals.find((t) => t.id === id);
     if (terminal) return { project, terminal };
@@ -97,7 +100,14 @@ export async function addProject(path: string): Promise<void> {
     activateProject(existing.id);
     return;
   }
-  const project: Project = { id: newId('p'), name: baseName(path), path, color: null, terminals: [], layout: { columns: [], active: 0 } };
+  const project: Project = {
+    id: newId('p'),
+    name: baseName(path),
+    path,
+    color: null,
+    terminals: [],
+    layout: { columns: [], active: 0 },
+  };
   useWorkspace.setState((ws) => ({ projects: [...ws.projects, project], activeProjectId: project.id }));
   newTerminal(project.id);
 }
@@ -123,7 +133,9 @@ export async function closeProject(id: string): Promise<void> {
     const index = ws.projects.findIndex((p) => p.id === id);
     const projects = ws.projects.filter((p) => p.id !== id);
     const activeProjectId =
-      ws.activeProjectId === id ? (projects[Math.min(index, projects.length - 1)]?.id ?? null) : ws.activeProjectId;
+      ws.activeProjectId === id
+        ? (projects[Math.min(index, projects.length - 1)]?.id ?? null)
+        : ws.activeProjectId;
     return { projects, activeProjectId };
   });
   const next = activeProject();
@@ -177,17 +189,23 @@ export function newTerminal(
   const profile = app.profiles.find((p) => p.id === profileId);
   const spec: TerminalSpec = {
     id: newId('t'),
-    name: uniqueName(project, o.name ?? profile?.name ?? t('terminals.defaultName', project.terminals.length + 1)),
+    name: uniqueName(
+      project,
+      o.name ?? profile?.name ?? t('terminals.defaultName', project.terminals.length + 1),
+    ),
     color: o.color ?? null,
     profileId,
     lastCwd: o.cwd ?? null,
   };
   updateProject(projectId, (p) => {
     const layout =
-      o.split && p.layout.columns.length < MAX_COLUMNS ? splitRight(p.layout, spec.id) : showTerminal(p.layout, spec.id);
+      o.split && p.layout.columns.length < MAX_COLUMNS
+        ? splitRight(p.layout, spec.id)
+        : showTerminal(p.layout, spec.id);
     return { ...p, terminals: [...p.terminals, spec], layout };
   });
-  if (useWorkspace.getState().activeProjectId !== projectId) useWorkspace.setState({ activeProjectId: projectId });
+  if (useWorkspace.getState().activeProjectId !== projectId)
+    useWorkspace.setState({ activeProjectId: projectId });
   startTerminal(spec.id);
   focusTerminal(spec.id);
   return spec.id;
@@ -202,7 +220,13 @@ export function duplicateTerminal(id: string): void {
   const found = findTerminal(id);
   if (!found) return;
   const { project, terminal } = found;
-  newTerminal(project.id, { profileId: terminal.profileId, color: terminal.color, cwd: terminal.lastCwd, name: terminal.name, split: true });
+  newTerminal(project.id, {
+    profileId: terminal.profileId,
+    color: terminal.color,
+    cwd: terminal.lastCwd,
+    name: terminal.name,
+    split: true,
+  });
 }
 
 export async function closeTerminal(id: string): Promise<void> {
@@ -231,7 +255,10 @@ export async function closeTerminal(id: string): Promise<void> {
 export function updateTerminal(id: string, patch: Partial<Omit<TerminalSpec, 'id'>>): void {
   const found = findTerminal(id);
   if (!found) return;
-  updateProject(found.project.id, (p) => ({ ...p, terminals: p.terminals.map((x) => (x.id === id ? { ...x, ...patch } : x)) }));
+  updateProject(found.project.id, (p) => ({
+    ...p,
+    terminals: p.terminals.map((x) => (x.id === id ? { ...x, ...patch } : x)),
+  }));
 }
 
 export function renameTerminal(id: string, name: string): void {
@@ -271,7 +298,11 @@ export function cycleTerminal(delta: number): void {
 export function dropOnColumn(terminalId: string, column: number, side: DropSide): void {
   const p = activeProject();
   if (!p || !p.terminals.some((x) => x.id === terminalId)) return;
-  if (side !== 'center' && p.layout.columns.length >= MAX_COLUMNS && !p.layout.columns.some((c) => c.terminalId === terminalId)) {
+  if (
+    side !== 'center' &&
+    p.layout.columns.length >= MAX_COLUMNS &&
+    !p.layout.columns.some((c) => c.terminalId === terminalId)
+  ) {
     toast(t('pane.full'));
     return;
   }

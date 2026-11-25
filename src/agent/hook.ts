@@ -7,7 +7,15 @@ import type { HookEvent } from '@shared/hub';
 import { hubEnv, sendOnce } from './hubClient';
 
 const startedAt = Date.now();
-const EVENTS = new Set<HookEvent>(['SessionStart', 'UserPromptSubmit', 'PreToolUse', 'PostToolUse', 'Stop', 'Notification', 'SessionEnd']);
+const EVENTS = new Set<HookEvent>([
+  'SessionStart',
+  'UserPromptSubmit',
+  'PreToolUse',
+  'PostToolUse',
+  'Stop',
+  'Notification',
+  'SessionEnd',
+]);
 
 function readStdin(timeoutMs: number): Promise<string> {
   return new Promise((resolve) => {

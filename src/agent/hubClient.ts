@@ -27,7 +27,10 @@ export class HubClient {
       s.setEncoding('utf8');
       let buffer = '';
       s.once('connect', () => {
-        s.write(JSON.stringify({ t: 'hello', token: this.env.token, role: this.role } satisfies ClientMessage) + '\n');
+        s.write(
+          JSON.stringify({ t: 'hello', token: this.env.token, role: this.role } satisfies ClientMessage) +
+            '\n',
+        );
         this.socket = s;
         this.connecting = null;
         resolve(s);
@@ -84,7 +87,11 @@ export class HubClient {
 }
 
 /** Sends one message and closes (hooks). Never throws; resolves when written or after the timeout. */
-export function sendOnce(env: { path: string; token: string }, msg: ClientMessage, timeoutMs = 1500): Promise<void> {
+export function sendOnce(
+  env: { path: string; token: string },
+  msg: ClientMessage,
+  timeoutMs = 1500,
+): Promise<void> {
   return new Promise((resolve) => {
     const done = () => {
       clearTimeout(timer);

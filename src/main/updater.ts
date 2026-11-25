@@ -20,7 +20,8 @@ export function startUpdater(onStatus: (s: UpdateStatus) => void): { install(): 
   autoUpdater.on('update-available', (i) => onStatus({ state: 'available', version: i.version }));
   autoUpdater.on('update-downloaded', (i) => onStatus({ state: 'downloaded', version: i.version }));
   autoUpdater.on('error', (err) => log.warn('update check failed', err));
-  const check = () => void autoUpdater.checkForUpdates().catch((err: unknown) => log.warn('update check failed', err));
+  const check = () =>
+    void autoUpdater.checkForUpdates().catch((err: unknown) => log.warn('update check failed', err));
   setTimeout(check, 10_000);
   setInterval(check, CHECK_EVERY_MS);
   return { install: () => autoUpdater.quitAndInstall(false, true) };

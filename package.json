@@ -14,13 +14,14 @@
     "preview": "electron-vite preview",
     "typecheck": "tsc -p tsconfig.node.json --noEmit && tsc -p tsconfig.web.json --noEmit",
     "lint": "eslint . --max-warnings 0",
-    "format": "prettier --write .",
+    "format": "prettier --write \"src/**/*.{ts,tsx,css}\" \"tests/**/*.ts\"",
     "test": "vitest run",
     "test:watch": "vitest",
     "e2e": "playwright test",
     "dist": "electron-vite build && electron-builder --publish never",
     "dist:win": "electron-vite build && electron-builder --win --publish never",
-    "dist:linux": "electron-vite build && electron-builder --linux --publish never"
+    "dist:linux": "electron-vite build && electron-builder --linux --publish never",
+    "format:check": "prettier --check \"src/**/*.{ts,tsx,css}\" \"tests/**/*.ts\""
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.32.2",

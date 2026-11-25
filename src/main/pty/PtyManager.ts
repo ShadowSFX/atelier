@@ -102,7 +102,8 @@ export class PtyManager extends EventEmitter<{
     this.kill(req.terminalId); // a restart replaces the old process
     const gen = this.bump(req.terminalId);
     const profile =
-      (await this.profiles.get(req.profileId)) ?? (await this.profiles.get(await this.profiles.defaultId(defaultProfile)));
+      (await this.profiles.get(req.profileId)) ??
+      (await this.profiles.get(await this.profiles.defaultId(defaultProfile)));
     // Closed or restarted while the profile was being resolved: this spawn is obsolete.
     if (this.generation.get(req.terminalId) !== gen) return { ok: false, error: 'cancelled' };
     if (!profile) return { ok: false, error: 'no-profile' };

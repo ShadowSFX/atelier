@@ -23,7 +23,13 @@ import {
   splitActive,
   useWorkspace,
 } from './state/workspace';
-import { applySettingsToAll, applyThemeToAll, getController, restoreGpu, saveSnapshots } from './terminal/registry';
+import {
+  applySettingsToAll,
+  applyThemeToAll,
+  getController,
+  restoreGpu,
+  saveSnapshots,
+} from './terminal/registry';
 import { appShortcut, runShortcut, setShortcutRunner, type Shortcut } from './terminal/shortcuts';
 import s from './App.module.css';
 
@@ -53,7 +59,9 @@ function useAppEffects(): void {
     // Shortcuts when the focus is outside a terminal (inside one, the terminal's key handler runs them).
     const onKey = (e: KeyboardEvent) => {
       if ((e.target as HTMLElement | null)?.closest('.xterm')) return;
-      const sc = appShortcut(e) ?? (e.ctrlKey && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'k' ? 'palette' : null);
+      const sc =
+        appShortcut(e) ??
+        (e.ctrlKey && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'k' ? 'palette' : null);
       if (!sc) return;
       const st = useApp.getState();
       if ((st.dialog || st.settingsOpen) && sc !== 'settings') return;
@@ -83,11 +91,16 @@ function useAppEffects(): void {
       // A terminal's color tints its background.
       useWorkspace.subscribe((ws, prev) => {
         const before = new Map(prev.projects.flatMap((p) => p.terminals.map((x) => [x.id, x.color])));
-        for (const p of ws.projects) for (const x of p.terminals) if (before.has(x.id) && before.get(x.id) !== x.color) getController(x.id)?.applyTheme();
+        for (const p of ws.projects)
+          for (const x of p.terminals)
+            if (before.has(x.id) && before.get(x.id) !== x.color) getController(x.id)?.applyTheme();
         watchStats();
       }),
     ];
-    document.documentElement.style.setProperty('--sidebar-width', `${useApp.getState().settings.sidebarWidth}px`);
+    document.documentElement.style.setProperty(
+      '--sidebar-width',
+      `${useApp.getState().settings.sidebarWidth}px`,
+    );
     syncChrome();
     watchStats();
     return () => {
@@ -128,7 +141,11 @@ async function onClosing(): Promise<void> {
         .projects.flatMap((p) => p.terminals)
         .filter((x) => busy.includes(x.id))
         .map((x) => x.name);
-      const ok = await confirmDialog({ title: t('terminals.closeRunning', names.join(', ')), ok: t('common.close'), danger: true });
+      const ok = await confirmDialog({
+        title: t('terminals.closeRunning', names.join(', ')),
+        ok: t('common.close'),
+        danger: true,
+      });
       if (!ok) return;
     }
   }

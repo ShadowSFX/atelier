@@ -133,7 +133,10 @@ export function normalizeLayout(layout: ProjectLayout, terminals: readonly { id:
   const columns = layout.columns
     .filter((c) => known.has(c.terminalId) && !seen.has(c.terminalId) && seen.add(c.terminalId))
     .slice(0, MAX_COLUMNS)
-    .map((c) => ({ terminalId: c.terminalId, weight: Number.isFinite(c.weight) && c.weight > 0 ? c.weight : 1 }));
+    .map((c) => ({
+      terminalId: c.terminalId,
+      weight: Number.isFinite(c.weight) && c.weight > 0 ? c.weight : 1,
+    }));
   if (columns.length === 0 && terminals.length > 0) columns.push({ terminalId: terminals[0]!.id, weight: 1 });
   const total = columns.reduce((a, c) => a + c.weight, 0) || 1;
   for (const c of columns) c.weight = c.weight / total;
@@ -160,7 +163,12 @@ export type DropSide = 'left' | 'center' | 'right';
  * (taking half of the target's width). A terminal already visible elsewhere moves (its old column closes).
  * Returns the layout unchanged when a split would exceed MAX_COLUMNS.
  */
-export function dropTerminal(layout: ProjectLayout, terminalId: string, target: number, side: DropSide): ProjectLayout {
+export function dropTerminal(
+  layout: ProjectLayout,
+  terminalId: string,
+  target: number,
+  side: DropSide,
+): ProjectLayout {
   if (layout.columns.length === 0) return { columns: [{ terminalId, weight: 1 }], active: 0 };
   const from = layout.columns.findIndex((c) => c.terminalId === terminalId);
   const targetCol = layout.columns[target];
@@ -208,7 +216,13 @@ export function closeColumn(layout: ProjectLayout, index: number): ProjectLayout
   const columns = layout.columns.map((c) => ({ ...c }));
   const [removed] = columns.splice(index, 1);
   columns[Math.max(0, index - 1)]!.weight += removed!.weight;
-  return { columns, active: Math.min(layout.active >= index ? Math.max(0, layout.active - 1) : layout.active, columns.length - 1) };
+  return {
+    columns,
+    active: Math.min(
+      layout.active >= index ? Math.max(0, layout.active - 1) : layout.active,
+      columns.length - 1,
+    ),
+  };
 }
 
 /** A terminal was deleted: its column shows another terminal that isn't visible, or closes. */
@@ -222,7 +236,10 @@ export function removeTerminalFromLayout(
   const visible = new Set(layout.columns.map((c) => c.terminalId));
   const replacement = remaining.find((t) => t.id !== terminalId && !visible.has(t.id));
   if (replacement) {
-    return { ...layout, columns: layout.columns.map((c, i) => (i === at ? { ...c, terminalId: replacement.id } : c)) };
+    return {
+      ...layout,
+      columns: layout.columns.map((c, i) => (i === at ? { ...c, terminalId: replacement.id } : c)),
+    };
   }
   if (layout.columns.length > 1) return closeColumn(layout, at);
   return { columns: [], active: 0 };

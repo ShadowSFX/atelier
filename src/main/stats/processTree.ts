@@ -56,10 +56,18 @@ function windowsSampler(): ProcessSampler | null {
       PagefileUsage: 'size_t',
       PeakPagefileUsage: 'size_t',
     });
-    const CreateToolhelp32Snapshot = kernel32.func('void * __stdcall CreateToolhelp32Snapshot(uint32 flags, uint32 pid)');
-    const Process32FirstW = kernel32.func('bool __stdcall Process32FirstW(void *h, _Inout_ PROCESSENTRY32W *e)');
-    const Process32NextW = kernel32.func('bool __stdcall Process32NextW(void *h, _Inout_ PROCESSENTRY32W *e)');
-    const OpenProcess = kernel32.func('void * __stdcall OpenProcess(uint32 access, bool inherit, uint32 pid)');
+    const CreateToolhelp32Snapshot = kernel32.func(
+      'void * __stdcall CreateToolhelp32Snapshot(uint32 flags, uint32 pid)',
+    );
+    const Process32FirstW = kernel32.func(
+      'bool __stdcall Process32FirstW(void *h, _Inout_ PROCESSENTRY32W *e)',
+    );
+    const Process32NextW = kernel32.func(
+      'bool __stdcall Process32NextW(void *h, _Inout_ PROCESSENTRY32W *e)',
+    );
+    const OpenProcess = kernel32.func(
+      'void * __stdcall OpenProcess(uint32 access, bool inherit, uint32 pid)',
+    );
     const CloseHandle = kernel32.func('bool __stdcall CloseHandle(void *h)');
     const GetProcessTimes = kernel32.func(
       'bool __stdcall GetProcessTimes(void *h, _Out_ uint64_t *creation, _Out_ uint64_t *exit, _Out_ uint64_t *kernel, _Out_ uint64_t *user)',
@@ -80,7 +88,10 @@ function windowsSampler(): ProcessSampler | null {
           const e = { dwSize: entrySize } as Record<string, unknown>;
           if (Process32FirstW(snap, e)) {
             do {
-              out.set(e.th32ProcessID as number, { ppid: e.th32ParentProcessID as number, name: e.szExeFile as string });
+              out.set(e.th32ProcessID as number, {
+                ppid: e.th32ParentProcessID as number,
+                name: e.szExeFile as string,
+              });
             } while (Process32NextW(snap, e));
           }
         } finally {
@@ -94,7 +105,10 @@ function windowsSampler(): ProcessSampler | null {
           const h = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid);
           if (!h) continue;
           try {
-            const creation = [0n], exit = [0n], kernel = [0n], user = [0n];
+            const creation = [0n],
+              exit = [0n],
+              kernel = [0n],
+              user = [0n];
             const c = { cb: countersSize } as Record<string, unknown>;
             const times = GetProcessTimes(h, creation, exit, kernel, user);
             const mem = GetProcessMemoryInfo(h, c, countersSize);
@@ -154,7 +168,14 @@ function linuxSampler(): ProcessSampler {
         try {
           const s = stat(pid);
           const rss = Number(readFileSync(`/proc/${pid}/statm`, 'utf8').split(' ')[1]) * page;
-          out.set(pid, { pid, ppid: s.ppid, name: s.name, cpuMs: (s.utime + s.stime) * tick, memory: rss, started: s.start * tick });
+          out.set(pid, {
+            pid,
+            ppid: s.ppid,
+            name: s.name,
+            cpuMs: (s.utime + s.stime) * tick,
+            memory: rss,
+            started: s.start * tick,
+          });
         } catch {
           /* exited */
         }

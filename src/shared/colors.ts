@@ -22,5 +22,11 @@ export function normalizeColor(value: unknown): string | null {
 export function blend(bg: string, fg: string, amount: number): string {
   const p = (h: string, i: number) => parseInt(h.slice(i, i + 2), 16);
   const mix = (i: number) => Math.round(p(bg, i) * (1 - amount) + p(fg, i) * amount);
-  return '#' + [1, 3, 5].map((i) => mix(i).toString(16).padStart(2, '0')).join('').toUpperCase();
+  return (
+    '#' +
+    [1, 3, 5]
+      .map((i) => mix(i).toString(16).padStart(2, '0'))
+      .join('')
+      .toUpperCase()
+  );
 }

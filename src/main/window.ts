@@ -25,7 +25,9 @@ function onScreen(b: Bounds): Bounds {
 export const TITLE_BAR_HEIGHT = 40;
 
 export function createMainWindow(userData: string, dark: boolean): BrowserWindow {
-  const store = new JsonStore<Bounds>(join(userData, 'window.json'), (raw) => Bounds.catch({ width: 1320, height: 820, maximized: false }).parse(raw ?? {}));
+  const store = new JsonStore<Bounds>(join(userData, 'window.json'), (raw) =>
+    Bounds.catch({ width: 1320, height: 820, maximized: false }).parse(raw ?? {}),
+  );
   const saved = onScreen(store.get());
 
   const win = new BrowserWindow({
@@ -37,7 +39,11 @@ export function createMainWindow(userData: string, dark: boolean): BrowserWindow
     show: false,
     backgroundColor: dark ? '#15181D' : '#F1F2F6',
     titleBarStyle: 'hidden',
-    titleBarOverlay: { color: dark ? '#15181D' : '#F1F2F6', symbolColor: dark ? '#E8EBF1' : '#191D25', height: TITLE_BAR_HEIGHT },
+    titleBarOverlay: {
+      color: dark ? '#15181D' : '#F1F2F6',
+      symbolColor: dark ? '#E8EBF1' : '#191D25',
+      height: TITLE_BAR_HEIGHT,
+    },
     icon: join(__dirname, '../../resources/icon.png'),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),

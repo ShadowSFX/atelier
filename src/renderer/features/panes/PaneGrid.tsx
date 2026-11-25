@@ -1,4 +1,9 @@
-import { Dismiss12Regular, FolderAdd16Regular, SplitVertical16Regular, WindowConsole20Regular } from '@fluentui/react-icons';
+import {
+  Dismiss12Regular,
+  FolderAdd16Regular,
+  SplitVertical16Regular,
+  WindowConsole20Regular,
+} from '@fluentui/react-icons';
 import { useLayoutEffect, useRef, useState } from 'react';
 import { MAX_COLUMNS } from '@shared/constants';
 import type { DropSide, Project } from '@shared/workspace';
@@ -34,7 +39,11 @@ function DropLayer({ index, full }: { index: number; full: boolean }) {
     ['right', t('pane.dropRight')],
   ];
   return (
-    <div className={s.dropLayer} data-full={full} onDragLeave={(e) => !e.currentTarget.contains(e.relatedTarget as Node) && setZone(null)}>
+    <div
+      className={s.dropLayer}
+      data-full={full}
+      onDragLeave={(e) => !e.currentTarget.contains(e.relatedTarget as Node) && setZone(null)}
+    >
       {zones.map(([side, label]) => (
         <div
           key={side}
@@ -117,7 +126,13 @@ function PaneSlot({ project, index, weight }: { project: Project; index: number;
   );
 }
 
-function Splitter({ index, container }: { index: number; container: React.RefObject<HTMLDivElement | null> }) {
+function Splitter({
+  index,
+  container,
+}: {
+  index: number;
+  container: React.RefObject<HTMLDivElement | null>;
+}) {
   const [active, setActive] = useState(false);
   return (
     <div
@@ -197,7 +212,9 @@ export function PaneGrid() {
       <main className={s.sheet}>
         <div className={s.empty}>
           <div className={s.emptyCard}>
-            <p className={s.emptyText}>{project.terminals.length === 0 ? t('terminals.empty') : t('pane.empty')}</p>
+            <p className={s.emptyText}>
+              {project.terminals.length === 0 ? t('terminals.empty') : t('pane.empty')}
+            </p>
             <Button variant="primary" onClick={() => newTerminalInActive()}>
               <WindowConsole20Regular fontSize={16} />
               {t('terminals.new')}
@@ -210,13 +227,29 @@ export function PaneGrid() {
   return (
     <main className={s.sheet} ref={container}>
       {columns.map((c, i) => (
-        <PaneFragment key={c.terminalId} project={project} index={i} weight={c.weight} container={container} />
+        <PaneFragment
+          key={c.terminalId}
+          project={project}
+          index={i}
+          weight={c.weight}
+          container={container}
+        />
       ))}
     </main>
   );
 }
 
-function PaneFragment({ project, index, weight, container }: { project: Project; index: number; weight: number; container: React.RefObject<HTMLDivElement | null> }) {
+function PaneFragment({
+  project,
+  index,
+  weight,
+  container,
+}: {
+  project: Project;
+  index: number;
+  weight: number;
+  container: React.RefObject<HTMLDivElement | null>;
+}) {
   return (
     <>
       {index > 0 && <Splitter index={index - 1} container={container} />}

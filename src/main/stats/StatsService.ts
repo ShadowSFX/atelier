@@ -128,9 +128,15 @@ export class StatsService {
         const name = list.get(pid)?.name ?? '';
         // Git Bash's bin\bash.exe re-runs usr\bin\bash.exe: the shell itself is not "what runs".
         const isShell = name.toLowerCase() === shellName;
-        if (pid !== tree[0] && !isShell && (!fg || d.started >= fg.started)) fg = { name, started: d.started };
+        if (pid !== tree[0] && !isShell && (!fg || d.started >= fg.started))
+          fg = { name, started: d.started };
       }
-      out.push({ terminalId: id, cpu: Math.min(1, cpu), memory, foreground: fg ? fg.name.replace(/\.exe$/i, '') : null });
+      out.push({
+        terminalId: id,
+        cpu: Math.min(1, cpu),
+        memory,
+        foreground: fg ? fg.name.replace(/\.exe$/i, '') : null,
+      });
     }
     for (const pid of this.lastProcCpu.keys()) if (!seen.has(pid)) this.lastProcCpu.delete(pid);
     return out;

@@ -65,7 +65,14 @@ export interface UpdateStatus {
 }
 
 export interface Invoke {
-  'app:info': () => { version: string; platform: string; hostname: string; home: string; locale: string; dev: boolean };
+  'app:info': () => {
+    version: string;
+    platform: string;
+    hostname: string;
+    home: string;
+    locale: string;
+    dev: boolean;
+  };
   'workspace:load': () => Workspace;
   /** The renderer owns the live workspace; main validates, persists (debounced) and mirrors it for the hub. */
   'workspace:save': (ws: Workspace) => void;

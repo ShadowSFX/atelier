@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { isLocalOscHost, parseOsc7, posixQuote, quotePath, quotePaths, shellPathToNative, toGitBashPath, toWslPath } from '@shared/shell';
+import {
+  isLocalOscHost,
+  parseOsc7,
+  posixQuote,
+  quotePath,
+  quotePaths,
+  shellPathToNative,
+  toGitBashPath,
+  toWslPath,
+} from '@shared/shell';
 
 describe('path conversion', () => {
   it('converts Windows paths to Git Bash form', () => {
@@ -21,7 +30,9 @@ describe('path conversion', () => {
     expect(shellPathToNative('C:\\Users\\me', 'cmd', 'win32')).toBe('C:\\Users\\me');
     expect(shellPathToNative('/c/Users/me/x y', 'gitbash', 'win32')).toBe('C:\\Users\\me\\x y');
     expect(shellPathToNative('/mnt/d/work', 'wsl', 'win32', 'Ubuntu')).toBe('D:\\work');
-    expect(shellPathToNative('/home/me', 'wsl', 'win32', 'Ubuntu')).toBe('\\\\wsl.localhost\\Ubuntu\\home\\me');
+    expect(shellPathToNative('/home/me', 'wsl', 'win32', 'Ubuntu')).toBe(
+      '\\\\wsl.localhost\\Ubuntu\\home\\me',
+    );
     expect(shellPathToNative('//srv/share/x', 'powershell', 'win32')).toBe('\\\\srv\\share\\x');
     expect(shellPathToNative('/home/me', 'bash', 'linux')).toBe('/home/me');
   });
@@ -29,7 +40,10 @@ describe('path conversion', () => {
 
 describe('OSC 7', () => {
   it('decodes percent-encoded paths and keeps the host', () => {
-    expect(parseOsc7('file://PC/C:/Users/me/a%20b%23c%25')).toEqual({ host: 'PC', path: '/C:/Users/me/a b#c%' });
+    expect(parseOsc7('file://PC/C:/Users/me/a%20b%23c%25')).toEqual({
+      host: 'PC',
+      path: '/C:/Users/me/a b#c%',
+    });
     expect(parseOsc7('file://host//srv/share/x')).toEqual({ host: 'host', path: '//srv/share/x' });
   });
 
@@ -73,7 +87,7 @@ describe('quoting pasted paths', () => {
     expect(quotePath('\\\\srv\\share\\x', 'wsl')).toBe("'\\\\srv\\share\\x'");
   });
 
-  it("escapes single quotes for POSIX shells", () => {
+  it('escapes single quotes for POSIX shells', () => {
     expect(posixQuote("it's")).toBe("'it'\\''s'");
     expect(posixQuote('$(rm -rf ~)')).toBe("'$(rm -rf ~)'");
   });

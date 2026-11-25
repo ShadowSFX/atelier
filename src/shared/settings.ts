@@ -5,8 +5,13 @@ import { z } from 'zod';
  * value falls back to its default instead of discarding the whole file.
  */
 const num = (def: number, min: number, max: number) =>
-  z.number().catch(def).default(def).transform((v) => Math.min(max, Math.max(min, v)));
-const oneOf = <T extends string>(values: readonly [T, ...T[]], def: T) => z.enum(values).catch(def).default(def);
+  z
+    .number()
+    .catch(def)
+    .default(def)
+    .transform((v) => Math.min(max, Math.max(min, v)));
+const oneOf = <T extends string>(values: readonly [T, ...T[]], def: T) =>
+  z.enum(values).catch(def).default(def);
 const bool = (def: boolean) => z.boolean().catch(def).default(def);
 const str = (def: string) => z.string().catch(def).default(def);
 

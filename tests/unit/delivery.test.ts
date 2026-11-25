@@ -130,7 +130,8 @@ describe('Delivery', () => {
   it('rate-limits a pair of sessions (stops message loops)', () => {
     const { d, tick } = setup();
     d.hook('a2', 'UserPromptSubmit');
-    for (let i = 0; i < HUB_RATE_PER_MINUTE; i++) expect(d.send('A', 'a1', 'a2', `m${i}`)[0]!.status).toBe('queued');
+    for (let i = 0; i < HUB_RATE_PER_MINUTE; i++)
+      expect(d.send('A', 'a1', 'a2', `m${i}`)[0]!.status).toBe('queued');
     expect(d.send('A', 'a1', 'a2', 'over')[0]!.reason).toMatch(/rate limit/);
     tick(61_000);
     expect(d.send('A', 'a1', 'a2', 'later')[0]!.status).toBe('queued');

@@ -52,16 +52,25 @@ export const STRINGS = {
   'pane.dropLeft': ['Abrir a la izquierda', 'Open on the left'],
   'pane.dropRight': ['Abrir a la derecha', 'Open on the right'],
   'pane.dropCenter': ['Mostrar aquí', 'Show here'],
-  'pane.empty': ['Elige una terminal de la izquierda o crea una nueva.', 'Pick a terminal on the left or create a new one.'],
+  'pane.empty': [
+    'Elige una terminal de la izquierda o crea una nueva.',
+    'Pick a terminal on the left or create a new one.',
+  ],
 
   // Terminal
   'term.starting': ['Iniciando {0}…', 'Starting {0}…'],
   'term.exited': ['El proceso terminó con código {0}.', 'The process exited with code {0}.'],
   'term.restartHint': ['Enter para reiniciar', 'Enter to restart'],
   'term.spawnFailed': ['No se pudo iniciar {0}: {1}', "Couldn't start {0}: {1}"],
-  'term.cwdFallback': ['La carpeta {0} no existe; la terminal se abrió en tu carpeta personal.', "Folder {0} doesn't exist; the terminal opened in your home folder."],
+  'term.cwdFallback': [
+    'La carpeta {0} no existe; la terminal se abrió en tu carpeta personal.',
+    "Folder {0} doesn't exist; the terminal opened in your home folder.",
+  ],
   'term.restored': ['sesión restaurada', 'session restored'],
-  'term.webglLost': ['La GPU se reinició; la terminal usa el renderizado de respaldo.', 'The GPU was reset; the terminal uses the fallback renderer.'],
+  'term.webglLost': [
+    'La GPU se reinició; la terminal usa el renderizado de respaldo.',
+    'The GPU was reset; the terminal uses the fallback renderer.',
+  ],
   'term.copy': ['Copiar', 'Copy'],
   'term.paste': ['Pegar', 'Paste'],
   'term.pastePath': ['Pegar como ruta', 'Paste as path'],
@@ -93,7 +102,10 @@ export const STRINGS = {
   'claude.idle': ['Claude: libre', 'Claude: idle'],
   'claude.busy': ['Claude: trabajando', 'Claude: working'],
   'claude.permission': ['Claude: espera tu permiso', 'Claude: waiting for permission'],
-  'claude.queued': ['{0} mensajes en cola — clic para entregar ahora', '{0} queued messages — click to deliver now'],
+  'claude.queued': [
+    '{0} mensajes en cola — clic para entregar ahora',
+    '{0} queued messages — click to deliver now',
+  ],
   'claude.sessions': ['{0} sesiones de Claude en el proyecto', '{0} Claude sessions in this project'],
 
   // Status bar
@@ -103,14 +115,23 @@ export const STRINGS = {
   'status.app': ['Atelier', 'Atelier'],
   'status.cpuTip': ['Uso de CPU del sistema', 'System CPU usage'],
   'status.ramTip': ['Memoria en uso: {0} de {1}', 'Memory in use: {0} of {1}'],
-  'status.diskTip': ['Espacio usado en la unidad del proyecto: {0} de {1}', 'Space used on the project drive: {0} of {1}'],
+  'status.diskTip': [
+    'Espacio usado en la unidad del proyecto: {0} de {1}',
+    'Space used on the project drive: {0} of {1}',
+  ],
   'status.appTip': ['Memoria que usa Atelier', 'Memory used by Atelier'],
-  'status.termTip': ['CPU y memoria de la terminal activa y sus programas', 'CPU and memory of the active terminal and its programs'],
+  'status.termTip': [
+    'CPU y memoria de la terminal activa y sus programas',
+    'CPU and memory of the active terminal and its programs',
+  ],
   'status.update': ['Versión {0} lista', 'Version {0} ready'],
   'status.restart': ['Reiniciar', 'Restart'],
 
   // Palette
-  'palette.placeholder': ['Escribe para buscar un proyecto, una terminal o una acción', 'Type to find a project, terminal or action'],
+  'palette.placeholder': [
+    'Escribe para buscar un proyecto, una terminal o una acción',
+    'Type to find a project, terminal or action',
+  ],
   'palette.hint': ['Enter para abrir · Esc para cerrar', 'Enter to open · Esc to close'],
   'palette.project': ['Proyecto', 'Project'],
   'palette.terminal': ['Terminal', 'Terminal'],
@@ -142,7 +163,10 @@ export const STRINGS = {
   'settings.cursorUnderline': ['Subrayado', 'Underline'],
   'settings.cursorBlink': ['Cursor parpadeante', 'Blinking cursor'],
   'settings.scrollback': ['Líneas de historial', 'Scrollback lines'],
-  'settings.tint': ['Teñir el fondo con el color de la terminal', "Tint the background with the terminal's color"],
+  'settings.tint': [
+    'Teñir el fondo con el color de la terminal',
+    "Tint the background with the terminal's color",
+  ],
   'settings.powerline': ['Prompt powerline de Atelier', "Atelier's powerline prompt"],
   'settings.powerlineHint': [
     'Se aplica a las terminales nuevas. Apágalo si usas tu propio prompt (oh-my-posh, starship).',
@@ -159,8 +183,14 @@ export const STRINGS = {
   'settings.bellVisual': ['Visual', 'Visual'],
   'settings.bellSound': ['Sonido', 'Sound'],
   'settings.bellOff': ['Apagada', 'Off'],
-  'settings.confirmClose': ['Confirmar al cerrar terminales con programas en ejecución', 'Confirm closing terminals that run programs'],
-  'settings.claudeHub': ['Comunicación entre sesiones del mismo proyecto', 'Messaging between sessions of the same project'],
+  'settings.confirmClose': [
+    'Confirmar al cerrar terminales con programas en ejecución',
+    'Confirm closing terminals that run programs',
+  ],
+  'settings.claudeHub': [
+    'Comunicación entre sesiones del mismo proyecto',
+    'Messaging between sessions of the same project',
+  ],
   'settings.claudeHubHint': [
     'Al ejecutar claude en una terminal de Atelier, la sesión puede ver y escribir solo a las demás sesiones de su proyecto (herramientas atelier_*). Las herramientas globales de Claude Code se desactivan dentro de Atelier. Se aplica a las terminales nuevas.',
     "When you run claude in an Atelier terminal, the session can see and message only the other sessions of its project (atelier_* tools). Claude Code's machine-wide messaging tools are turned off inside Atelier. Applies to new terminals.",
@@ -180,7 +210,9 @@ export type StringKey = keyof typeof STRINGS;
 export function translate(lang: Lang, key: StringKey, ...args: (string | number)[]): string {
   const pair = STRINGS[key] as readonly [string, string];
   const text = pair[lang === 'es' ? 0 : 1];
-  return args.length === 0 ? text : text.replace(/\{(\d+)\}/g, (m, i: string) => (args[Number(i)] ?? m).toString());
+  return args.length === 0
+    ? text
+    : text.replace(/\{(\d+)\}/g, (m, i: string) => (args[Number(i)] ?? m).toString());
 }
 
 export function resolveLang(setting: 'system' | Lang, locale: string): Lang {

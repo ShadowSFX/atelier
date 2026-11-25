@@ -23,7 +23,13 @@ export function SearchBar({ c }: { c: TerminalController }) {
 
   if (!st.open) return null;
   const toggle = (key: 'caseSensitive' | 'wholeWord' | 'regex', label: string, text: string) => (
-    <button type="button" className={cx(s.toggle, st[key] && s.toggleOn)} title={label} aria-pressed={st[key]} onClick={() => c.setSearch({ [key]: !st[key] })}>
+    <button
+      type="button"
+      className={cx(s.toggle, st[key] && s.toggleOn)}
+      title={label}
+      aria-pressed={st[key]}
+      onClick={() => c.setSearch({ [key]: !st[key] })}
+    >
       {text}
     </button>
   );
@@ -49,7 +55,13 @@ export function SearchBar({ c }: { c: TerminalController }) {
       {toggle('caseSensitive', t('search.case'), 'Aa')}
       {toggle('wholeWord', t('search.word'), 'ab')}
       {toggle('regex', t('search.regex'), '.*')}
-      <span className={s.count}>{st.query ? (st.resultCount > 0 ? `${st.resultIndex + 1} / ${st.resultCount}` : t('search.none')) : ''}</span>
+      <span className={s.count}>
+        {st.query
+          ? st.resultCount > 0
+            ? `${st.resultIndex + 1} / ${st.resultCount}`
+            : t('search.none')
+          : ''}
+      </span>
       <IconButton label={t('search.prev')} size="sm" onClick={() => c.findNext(true)}>
         <ArrowUp16Regular />
       </IconButton>

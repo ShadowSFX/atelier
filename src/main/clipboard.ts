@@ -19,7 +19,9 @@ function windowsFileReader(): (() => string[]) | null {
     const CloseClipboard = user32.func('bool __stdcall CloseClipboard()');
     const GetClipboardData = user32.func('void * __stdcall GetClipboardData(uint32 fmt)');
     const IsClipboardFormatAvailable = user32.func('bool __stdcall IsClipboardFormatAvailable(uint32 fmt)');
-    const DragQueryFileW = shell32.func('uint32 __stdcall DragQueryFileW(void *hDrop, uint32 i, _Out_ uint16 *buf, uint32 cch)');
+    const DragQueryFileW = shell32.func(
+      'uint32 __stdcall DragQueryFileW(void *hDrop, uint32 i, _Out_ uint16 *buf, uint32 cch)',
+    );
     const CF_HDROP = 15;
     return () => {
       if (!IsClipboardFormatAvailable(CF_HDROP)) return [];

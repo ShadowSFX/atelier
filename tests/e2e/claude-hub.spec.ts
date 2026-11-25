@@ -9,7 +9,10 @@ import { _electron as electron, expect, test, type Page } from '@playwright/test
  * Real Claude Code sessions inside Atelier talking through the hub. Uses the installed `claude` and the API, so it
  * only runs with ATELIER_E2E_CLAUDE=1.
  */
-test.skip(!process.env.ATELIER_E2E_CLAUDE, 'set ATELIER_E2E_CLAUDE=1 to run against real Claude Code sessions');
+test.skip(
+  !process.env.ATELIER_E2E_CLAUDE,
+  'set ATELIER_E2E_CLAUDE=1 to run against real Claude Code sessions',
+);
 
 const root = resolve(__dirname, '../..');
 const base = mkdtempSync(join(tmpdir(), 'atelier-hub-'));
@@ -37,23 +40,34 @@ async function startClaude(page: Page, id: string): Promise<void> {
   await page.keyboard.press('Enter');
   let trusted = false;
   await expect
-    .poll(async () => {
-      if (!trusted && /Yes, I trust this folder/.test(await text(page, id))) {
-        trusted = true;
-        await page.keyboard.press('ArrowDown'); // the default choice is "No, exit"
-        await page.keyboard.press('Enter');
-      }
-      return page.locator(`[data-claude-terminal="${id}"]`).count();
-    }, { timeout: 90_000, intervals: [1000] })
+    .poll(
+      async () => {
+        if (!trusted && /Yes, I trust this folder/.test(await text(page, id))) {
+          trusted = true;
+          await page.keyboard.press('ArrowDown'); // the default choice is "No, exit"
+          await page.keyboard.press('Enter');
+        }
+        return page.locator(`[data-claude-terminal="${id}"]`).count();
+      },
+      { timeout: 90_000, intervals: [1000] },
+    )
     .toBeGreaterThan(0);
 }
 
 test('two Claude sessions of one project message each other; another project is out of reach', async () => {
   test.setTimeout(420_000);
-  const app = await electron.launch({ args: [root], cwd: root, env: { ...process.env, ATELIER_USER_DATA: join(base, 'profile') } });
+  const app = await electron.launch({
+    args: [root],
+    cwd: root,
+    env: { ...process.env, ATELIER_USER_DATA: join(base, 'profile') },
+  });
   const page = await app.firstWindow();
   await page.waitForSelector('header');
-  const open = (d: string) => app.evaluate(({ BrowserWindow }, p) => BrowserWindow.getAllWindows()[0]!.webContents.send('app:open-project', p), d);
+  const open = (d: string) =>
+    app.evaluate(
+      ({ BrowserWindow }, p) => BrowserWindow.getAllWindows()[0]!.webContents.send('app:open-project', p),
+      d,
+    );
 
   await open(projB);
   await expect.poll(async () => (await ids(page)).length).toBe(1);

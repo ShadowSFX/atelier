@@ -14,12 +14,25 @@ import {
 
 const ids = (l: ProjectLayout) => l.columns.map((c) => c.terminalId);
 const terms = (...names: string[]) => names.map((id) => ({ id }));
-const layout = (...names: string[]): ProjectLayout => ({ columns: names.map((terminalId) => ({ terminalId, weight: 1 / names.length })), active: 0 });
+const layout = (...names: string[]): ProjectLayout => ({
+  columns: names.map((terminalId) => ({ terminalId, weight: 1 / names.length })),
+  active: 0,
+});
 
 describe('layout', () => {
   it('normalizes: drops unknown and duplicate columns, caps at 3, fixes weights', () => {
     const l = normalizeLayout(
-      { columns: [{ terminalId: 'a', weight: 2 }, { terminalId: 'x', weight: 1 }, { terminalId: 'a', weight: 1 }, { terminalId: 'b', weight: -1 }, { terminalId: 'c', weight: 1 }, { terminalId: 'd', weight: 1 }], active: 9 },
+      {
+        columns: [
+          { terminalId: 'a', weight: 2 },
+          { terminalId: 'x', weight: 1 },
+          { terminalId: 'a', weight: 1 },
+          { terminalId: 'b', weight: -1 },
+          { terminalId: 'c', weight: 1 },
+          { terminalId: 'd', weight: 1 },
+        ],
+        active: 9,
+      },
       terms('a', 'b', 'c', 'd'),
     );
     expect(ids(l)).toEqual(['a', 'b', 'c']);
@@ -99,7 +112,14 @@ describe('workspace loading', () => {
   it('drops invalid projects and terminals, keeps the rest', () => {
     const ws = parseWorkspace({
       projects: [
-        { id: 'p1', name: '', path: 'C:\\work\\api', color: '#22a699', terminals: [{ id: 't1', name: 'api', profileId: 'pwsh' }, { bad: true }], layout: { columns: [{ terminalId: 't1', weight: 1 }] } },
+        {
+          id: 'p1',
+          name: '',
+          path: 'C:\\work\\api',
+          color: '#22a699',
+          terminals: [{ id: 't1', name: 'api', profileId: 'pwsh' }, { bad: true }],
+          layout: { columns: [{ terminalId: 't1', weight: 1 }] },
+        },
         { id: 'p2', path: '' },
         { id: 'p3', path: 'c:/work/api/' }, // same directory as p1
         { id: 'p4', path: '/home/me/web', color: 'red', terminals: [{ id: 't1', name: 'dup id' }] },

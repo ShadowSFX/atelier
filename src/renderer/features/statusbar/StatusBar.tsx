@@ -30,7 +30,9 @@ export function StatusBar() {
   const focused = useWorkspace((w) => focusedTerminalId(w));
   const project = useWorkspace((w) => activeProject(w));
   const term = useRuntime((st) => (focused ? st.byTerminal[focused] : undefined));
-  const claudeCount = useRuntime((st) => (project ? project.terminals.filter((x) => st.claude[x.id]?.state).length : 0));
+  const claudeCount = useRuntime((st) =>
+    project ? project.terminals.filter((x) => st.claude[x.id]?.state).length : 0,
+  );
   const update = useApp((st) => st.update);
   const focusedName = project?.terminals.find((x) => x.id === focused)?.name;
 
@@ -50,9 +52,14 @@ export function StatusBar() {
             </span>
           </span>
           {stats.disk && stats.disk.total > 0 && (
-            <span className={s.item} title={t('status.diskTip', bytes(stats.disk.used), bytes(stats.disk.total))}>
+            <span
+              className={s.item}
+              title={t('status.diskTip', bytes(stats.disk.used), bytes(stats.disk.total))}
+            >
               <span className={s.label}>{t('status.disk')}</span>
-              <span className={level(stats.disk.used / stats.disk.total)}>{percent(stats.disk.used / stats.disk.total)}</span>
+              <span className={level(stats.disk.used / stats.disk.total)}>
+                {percent(stats.disk.used / stats.disk.total)}
+              </span>
             </span>
           )}
           <span className={s.item} title={t('status.appTip')}>

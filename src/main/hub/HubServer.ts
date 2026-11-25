@@ -101,14 +101,25 @@ export class HubServer {
         }
         if (!this.tokens.has(token)) return void socket.destroy(); // revoked: the terminal closed or restarted
         if (msg.t === 'hook') {
-          this.deps.delivery.hook(who.terminalId, msg.event, msg.notificationType, Number(msg.at) || Date.now());
+          this.deps.delivery.hook(
+            who.terminalId,
+            msg.event,
+            msg.notificationType,
+            Number(msg.at) || Date.now(),
+          );
           return;
         }
         if (msg.t === 'req') {
           const id = who;
           this.handle(id, msg).then(
             (result) => reply({ t: 'res', id: msg.id, ok: true, result }),
-            (err: unknown) => reply({ t: 'res', id: msg.id, ok: false, error: err instanceof Error ? err.message : String(err) }),
+            (err: unknown) =>
+              reply({
+                t: 'res',
+                id: msg.id,
+                ok: false,
+                error: err instanceof Error ? err.message : String(err),
+              }),
           );
         }
       });

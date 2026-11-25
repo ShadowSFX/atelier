@@ -17,7 +17,8 @@ const text = (t: string) => ({ content: [{ type: 'text' as const, text: t }] });
 const fail = (t: string) => ({ content: [{ type: 'text' as const, text: t }], isError: true });
 
 async function call<T>(op: string, args: Record<string, unknown>, render: (r: T) => string) {
-  if (!hub) return fail('This Claude session was not started from an Atelier terminal, so it has no project peers.');
+  if (!hub)
+    return fail('This Claude session was not started from an Atelier terminal, so it has no project peers.');
   try {
     return text(render(await hub.request<T>(op, args)));
   } catch (err) {
@@ -67,7 +68,9 @@ server.registerTool(
       'into that session as a prompt as soon as the session is idle; until then it waits in a queue. Use it to ' +
       'coordinate work (hand off a task, report a result, ask a question). Keep it self-contained.',
     inputSchema: {
-      to: z.string().describe('Terminal id from atelier_peers, or "all" for every other Claude session in the project'),
+      to: z
+        .string()
+        .describe('Terminal id from atelier_peers, or "all" for every other Claude session in the project'),
       message: z.string().min(1).max(HUB_MAX_MESSAGE).describe('The message'),
     },
   },
@@ -87,7 +90,9 @@ server.registerTool(
   },
   () =>
     call<InboxMessage[]>('inbox', {}, (msgs) =>
-      msgs.length === 0 ? 'No new messages.' : msgs.map((m) => `[${m.at}] ${m.fromName} (${m.from}): ${m.text}`).join('\n\n'),
+      msgs.length === 0
+        ? 'No new messages.'
+        : msgs.map((m) => `[${m.at}] ${m.fromName} (${m.from}): ${m.text}`).join('\n\n'),
     ),
 );
 
@@ -100,7 +105,13 @@ server.registerTool(
       'dev server log or a test run. Read-only.',
     inputSchema: {
       terminal: z.string().describe('Terminal id from atelier_peers'),
-      lines: z.number().int().min(1).max(HUB_MAX_READ_LINES).default(100).describe('How many lines, from the end'),
+      lines: z
+        .number()
+        .int()
+        .min(1)
+        .max(HUB_MAX_READ_LINES)
+        .default(100)
+        .describe('How many lines, from the end'),
     },
     annotations: { readOnlyHint: true },
   },

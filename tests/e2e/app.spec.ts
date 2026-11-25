@@ -27,14 +27,21 @@ test.afterAll(() => {
 });
 
 async function launch(): Promise<{ app: ElectronApplication; page: Page }> {
-  const app = await electron.launch({ args: [root], cwd: root, env: { ...process.env, ATELIER_USER_DATA: userData } });
+  const app = await electron.launch({
+    args: [root],
+    cwd: root,
+    env: { ...process.env, ATELIER_USER_DATA: userData },
+  });
   const page = await app.firstWindow();
   await page.waitForSelector('header');
   return { app, page };
 }
 
 async function openProject(app: ElectronApplication, dir: string): Promise<void> {
-  await app.evaluate(({ BrowserWindow }, d) => BrowserWindow.getAllWindows()[0]!.webContents.send('app:open-project', d), dir);
+  await app.evaluate(
+    ({ BrowserWindow }, d) => BrowserWindow.getAllWindows()[0]!.webContents.send('app:open-project', d),
+    dir,
+  );
 }
 
 const terminalIds = (page: Page) => page.evaluate(() => window.__atelier!.ids());
@@ -58,7 +65,12 @@ async function typeLine(page: Page, line: string): Promise<void> {
 async function redPixels(app: ElectronApplication, page: Page): Promise<number> {
   const box = await page.locator('main section').first().boundingBox();
   if (!box) throw new Error('no pane');
-  const rect = { x: Math.round(box.x), y: Math.round(box.y + 40), width: Math.round(box.width), height: Math.round(box.height - 40) };
+  const rect = {
+    x: Math.round(box.x),
+    y: Math.round(box.y + 40),
+    width: Math.round(box.width),
+    height: Math.round(box.height - 40),
+  };
   return app.evaluate(async ({ BrowserWindow }, r) => {
     const img = await BrowserWindow.getAllWindows()[0]!.webContents.capturePage(r);
     const bmp = img.toBitmap(); // BGRA
@@ -121,7 +133,11 @@ test('projects, terminals, panes, no stale paint, restore', async () => {
     const f2 = join(projA, 'plain.txt');
     writeFileSync(f1, 'x');
     writeFileSync(f2, 'x');
-    execFileSync('powershell.exe', ['-NoProfile', '-Command', `Set-Clipboard -LiteralPath '${f1.replace(/'/g, "''")}','${f2}'`]);
+    execFileSync('powershell.exe', [
+      '-NoProfile',
+      '-Command',
+      `Set-Clipboard -LiteralPath '${f1.replace(/'/g, "''")}','${f2}'`,
+    ]);
     await page.locator('main section').first().click();
     await page.keyboard.press('Control+v');
     await waitText(page, a!, /'[^\n]*it''s a file\.txt' [^\n]*plain\.txt/);

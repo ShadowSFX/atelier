@@ -52,7 +52,13 @@ export function ContextMenu() {
     item.run?.();
   };
   return (
-    <div ref={ref} className={s.menu} role="menu" style={{ left: pos.x, top: pos.y }} onContextMenu={(e) => e.preventDefault()}>
+    <div
+      ref={ref}
+      className={s.menu}
+      role="menu"
+      style={{ left: pos.x, top: pos.y }}
+      onContextMenu={(e) => e.preventDefault()}
+    >
       {menu.items.map((item, i) =>
         item === 'separator' ? (
           <div key={i} className={s.menuSeparator} role="separator" />
@@ -67,7 +73,9 @@ export function ContextMenu() {
             className={cx(s.menuItem, item.danger && s.menuDanger)}
             onClick={() => run(item)}
           >
-            <span className={cx(s.menuIcon, item.checked && s.menuCheck)}>{item.checked ? <Checkmark12Regular /> : item.icon}</span>
+            <span className={cx(s.menuIcon, item.checked && s.menuCheck)}>
+              {item.checked ? <Checkmark12Regular /> : item.icon}
+            </span>
             <span>{item.label}</span>
             <span className={s.menuShortcut}>{item.shortcut}</span>
           </button>

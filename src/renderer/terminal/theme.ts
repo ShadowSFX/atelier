@@ -3,8 +3,22 @@ import { blend } from '@shared/colors';
 import { recommendedContrast, resolveScheme } from '@shared/schemes';
 
 const ANSI_KEYS = [
-  'black', 'red', 'green', 'yellow', 'blue', 'magenta', 'cyan', 'white',
-  'brightBlack', 'brightRed', 'brightGreen', 'brightYellow', 'brightBlue', 'brightMagenta', 'brightCyan', 'brightWhite',
+  'black',
+  'red',
+  'green',
+  'yellow',
+  'blue',
+  'magenta',
+  'cyan',
+  'white',
+  'brightBlack',
+  'brightRed',
+  'brightGreen',
+  'brightYellow',
+  'brightBlue',
+  'brightMagenta',
+  'brightCyan',
+  'brightWhite',
 ] as const;
 
 export interface TerminalTheme {
@@ -17,7 +31,12 @@ export interface TerminalTheme {
  * xterm theme for a terminal: its color scheme, with the terminal's identification color blended into the
  * background (6% on dark schemes, 4% on light ones, like RDMan's server tint).
  */
-export function terminalTheme(schemeId: string, appDark: boolean, color: string | null, tint: boolean): TerminalTheme {
+export function terminalTheme(
+  schemeId: string,
+  appDark: boolean,
+  color: string | null,
+  tint: boolean,
+): TerminalTheme {
   const s = resolveScheme(schemeId, appDark);
   const background = tint && color ? blend(s.background, color, s.dark ? 0.06 : 0.04) : s.background;
   const selection = s.selection.slice(0, 7);

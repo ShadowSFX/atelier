@@ -19,7 +19,8 @@ import { findTerminal, setLastCwd } from '../state/workspace';
 import { appShortcut, runShortcut } from './shortcuts';
 import { terminalTheme } from './theme';
 
-const FONT_FALLBACK = '"Cascadia Code NF", "Cascadia Mono", Consolas, "DejaVu Sans Mono", "Liberation Mono", monospace';
+const FONT_FALLBACK =
+  '"Cascadia Code NF", "Cascadia Mono", Consolas, "DejaVu Sans Mono", "Liberation Mono", monospace';
 const fontFamily = (family: string) => `"${family}", ${FONT_FALLBACK}`;
 
 /** Fonts must be loaded before xterm measures cells and builds its glyph atlas (else it caches fallback metrics). */
@@ -84,9 +85,20 @@ export class TerminalController {
   private readonly observer: ResizeObserver;
   /** Output since the last snapshot save. */
   dirty = false;
-  searchState: SearchState = { open: false, query: '', caseSensitive: false, wholeWord: false, regex: false, resultIndex: -1, resultCount: 0 };
+  searchState: SearchState = {
+    open: false,
+    query: '',
+    caseSensitive: false,
+    wholeWord: false,
+    regex: false,
+    resultIndex: -1,
+    resultCount: 0,
+  };
 
-  constructor(readonly id: string, private readonly parking: HTMLElement) {
+  constructor(
+    readonly id: string,
+    private readonly parking: HTMLElement,
+  ) {
     this.host = document.createElement('div');
     this.host.className = 'term-host';
     this.host.dataset.terminal = id;
@@ -155,7 +167,11 @@ export class TerminalController {
     });
     this.term.attachCustomKeyEventHandler((e) => this.onKey(e));
     this.search.onDidChangeResults((r) => {
-      this.searchState = { ...this.searchState, resultIndex: r?.resultIndex ?? -1, resultCount: r?.resultCount ?? 0 };
+      this.searchState = {
+        ...this.searchState,
+        resultIndex: r?.resultIndex ?? -1,
+        resultCount: r?.resultCount ?? 0,
+      };
       this.notify();
     });
     this.registerShellIntegration();
@@ -166,12 +182,16 @@ export class TerminalController {
     this.host.addEventListener('contextmenu', (e) => this.onContextMenu(e));
     this.host.addEventListener('dragover', (e) => this.onDragOver(e));
     this.host.addEventListener('drop', (e) => void this.onDrop(e));
-    this.host.addEventListener('paste', (e) => {
-      // Every paste goes through Atelier (files, images, multi-line guard).
-      e.preventDefault();
-      e.stopImmediatePropagation();
-      void this.paste();
-    }, true);
+    this.host.addEventListener(
+      'paste',
+      (e) => {
+        // Every paste goes through Atelier (files, images, multi-line guard).
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        void this.paste();
+      },
+      true,
+    );
   }
 
   // ───────────── Lifecycle ─────────────
@@ -198,7 +218,9 @@ export class TerminalController {
     if (snapshot) {
       this.term.write(snapshot);
       // Push the restored screen into scrollback: the new shell (ConPTY) clears the viewport when it starts.
-      this.term.write(`\r\n\x1b[2m── ${t('term.restored')} ──\x1b[0m\r\n` + '\r\n'.repeat(Math.max(0, this.term.rows - 1)));
+      this.term.write(
+        `\r\n\x1b[2m── ${t('term.restored')} ──\x1b[0m\r\n` + '\r\n'.repeat(Math.max(0, this.term.rows - 1)),
+      );
     }
     await this.spawn();
   }
@@ -337,7 +359,8 @@ export class TerminalController {
   // ───────────── Settings & theme ─────────────
 
   applySettings(s: Settings): void {
-    const fontChanged = this.term.options.fontFamily !== fontFamily(s.fontFamily) || this.baseFontSize !== s.fontSize;
+    const fontChanged =
+      this.term.options.fontFamily !== fontFamily(s.fontFamily) || this.baseFontSize !== s.fontSize;
     this.baseFontSize = s.fontSize;
     const o = this.term.options;
     o.lineHeight = s.lineHeight;
@@ -362,7 +385,12 @@ export class TerminalController {
   applyTheme(): void {
     const app = useApp.getState();
     const spec = findTerminal(this.id)?.terminal;
-    const theme = terminalTheme(app.settings.colorScheme, app.dark, spec?.color ?? null, app.settings.tintWithColor);
+    const theme = terminalTheme(
+      app.settings.colorScheme,
+      app.dark,
+      spec?.color ?? null,
+      app.settings.tintWithColor,
+    );
     this.term.options.theme = theme.xterm;
     this.term.options.minimumContrastRatio = Math.max(app.settings.minimumContrast, theme.minimumContrast);
     this.host.style.background = theme.xterm.background ?? '';
@@ -460,10 +488,15 @@ export class TerminalController {
     if (c.kind === 'image') return this.pasteText(quotePaths([c.path], this.kind, this.distro));
     if (c.kind === 'empty') return toast(t('term.nothingToPaste'));
     let text = c.text.replace(/\r\n?/g, '\n');
-    if (asPath) return this.pasteText(quotePaths([text.trim().replace(/^"(.*)"$/, '$1')], this.kind, this.distro));
+    if (asPath)
+      return this.pasteText(quotePaths([text.trim().replace(/^"(.*)"$/, '$1')], this.kind, this.distro));
     const lines = text.replace(/\n+$/, '').split('\n').length;
     if (useApp.getState().settings.warnMultilinePaste && lines > 1 && !this.term.modes.bracketedPasteMode) {
-      const ok = await confirmDialog({ title: t('term.pasteWarn.title', lines), body: t('term.pasteWarn.body'), ok: t('term.pasteWarn.ok') });
+      const ok = await confirmDialog({
+        title: t('term.pasteWarn.title', lines),
+        body: t('term.pasteWarn.body'),
+        ok: t('term.pasteWarn.ok'),
+      });
       if (!ok) return this.term.focus();
     }
     if (!this.term.modes.bracketedPasteMode) text = text.replace(/\n$/, '');
@@ -505,23 +538,31 @@ export class TerminalController {
       runShortcut(app);
       return false;
     }
-    if (ctrl && shift && !alt && k === 'c') return void this.copy(false), false;
-    if (ctrl && !shift && !alt && k === 'c' && useApp.getState().settings.smartCtrlC && this.term.hasSelection()) {
-      return void this.copy(true), false;
+    if (ctrl && shift && !alt && k === 'c') return (void this.copy(false), false);
+    if (
+      ctrl &&
+      !shift &&
+      !alt &&
+      k === 'c' &&
+      useApp.getState().settings.smartCtrlC &&
+      this.term.hasSelection()
+    ) {
+      return (void this.copy(true), false);
     }
-    if ((ctrl && !alt && k === 'v') || (shift && !ctrl && !alt && k === 'Insert')) return void this.paste(), false;
-    if (ctrl && !shift && !alt && k === 'Insert') return void this.copy(false), false;
-    if (ctrl && shift && !alt && k === 'f') return this.openSearch(), false;
-    if (ctrl && shift && !alt && k === 'a') return this.term.selectAll(), false;
-    if (ctrl && !shift && !alt && (k === '=' || k === '+')) return this.setZoom(this.zoom + 1), false;
-    if (ctrl && !shift && !alt && k === '-') return this.setZoom(this.zoom - 1), false;
-    if (ctrl && !shift && !alt && k === '0') return this.setZoom(0), false;
-    if (ctrl && shift && !alt && k === 'ArrowUp') return this.jumpPrompt(-1), false;
-    if (ctrl && shift && !alt && k === 'ArrowDown') return this.jumpPrompt(1), false;
-    if (shift && !ctrl && !alt && k === 'PageUp') return this.term.scrollPages(-1), false;
-    if (shift && !ctrl && !alt && k === 'PageDown') return this.term.scrollPages(1), false;
-    if (ctrl && shift && !alt && k === 'Home') return this.term.scrollToTop(), false;
-    if (ctrl && shift && !alt && k === 'End') return this.term.scrollToBottom(), false;
+    if ((ctrl && !alt && k === 'v') || (shift && !ctrl && !alt && k === 'Insert'))
+      return (void this.paste(), false);
+    if (ctrl && !shift && !alt && k === 'Insert') return (void this.copy(false), false);
+    if (ctrl && shift && !alt && k === 'f') return (this.openSearch(), false);
+    if (ctrl && shift && !alt && k === 'a') return (this.term.selectAll(), false);
+    if (ctrl && !shift && !alt && (k === '=' || k === '+')) return (this.setZoom(this.zoom + 1), false);
+    if (ctrl && !shift && !alt && k === '-') return (this.setZoom(this.zoom - 1), false);
+    if (ctrl && !shift && !alt && k === '0') return (this.setZoom(0), false);
+    if (ctrl && shift && !alt && k === 'ArrowUp') return (this.jumpPrompt(-1), false);
+    if (ctrl && shift && !alt && k === 'ArrowDown') return (this.jumpPrompt(1), false);
+    if (shift && !ctrl && !alt && k === 'PageUp') return (this.term.scrollPages(-1), false);
+    if (shift && !ctrl && !alt && k === 'PageDown') return (this.term.scrollPages(1), false);
+    if (ctrl && shift && !alt && k === 'Home') return (this.term.scrollToTop(), false);
+    if (ctrl && shift && !alt && k === 'End') return (this.term.scrollToBottom(), false);
     return true;
   }
 
@@ -549,8 +590,12 @@ export class TerminalController {
         if (last.exit === null && !Number.isNaN(code)) {
           last.exit = code;
           if (code !== 0) {
-            const danger = getComputedStyle(document.documentElement).getPropertyValue('--danger').trim() || '#F0605D';
-            this.term.registerDecoration({ marker: last.marker, overviewRulerOptions: { color: danger, position: 'full' } });
+            const danger =
+              getComputedStyle(document.documentElement).getPropertyValue('--danger').trim() || '#F0605D';
+            this.term.registerDecoration({
+              marker: last.marker,
+              overviewRulerOptions: { color: danger, position: 'full' },
+            });
           }
         }
       }
@@ -576,7 +621,8 @@ export class TerminalController {
     const live = this.prompts.filter((p) => !p.marker.isDisposed && p.marker.line >= 0);
     if (live.length === 0) return;
     const top = this.term.buffer.active.viewportY;
-    const target = dir < 0 ? [...live].reverse().find((p) => p.marker.line < top) : live.find((p) => p.marker.line > top);
+    const target =
+      dir < 0 ? [...live].reverse().find((p) => p.marker.line < top) : live.find((p) => p.marker.line > top);
     if (target) this.term.scrollToLine(target.marker.line);
     else if (dir > 0) this.term.scrollToBottom();
   }
@@ -612,7 +658,11 @@ export class TerminalController {
 
   openSearch(): void {
     const sel = this.term.hasSelection() ? this.term.getSelection() : '';
-    this.searchState = { ...this.searchState, open: true, query: sel && !sel.includes('\n') ? sel : this.searchState.query };
+    this.searchState = {
+      ...this.searchState,
+      open: true,
+      query: sel && !sel.includes('\n') ? sel : this.searchState.query,
+    };
     this.notify();
   }
 
@@ -719,7 +769,11 @@ export class TerminalController {
         label: t('term.saveOutput'),
         run: () =>
           void api
-            .invoke('dialog:save-text', { title: t('term.saveOutput'), defaultName: `${findTerminal(this.id)?.terminal.name ?? 'terminal'}.txt`, text: this.text() + '\n' })
+            .invoke('dialog:save-text', {
+              title: t('term.saveOutput'),
+              defaultName: `${findTerminal(this.id)?.terminal.name ?? 'terminal'}.txt`,
+              text: this.text() + '\n',
+            })
             .then((ok) => ok && toast(t('term.saved'), 'success')),
       },
       { label: t('term.clear'), run: () => this.clear() },

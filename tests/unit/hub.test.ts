@@ -1,7 +1,9 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import type { PeerInfo, SendReport } from '@shared/hub';
 
-vi.mock('../../src/main/log', () => ({ log: { warn: () => undefined, error: () => undefined, info: () => undefined } }));
+vi.mock('../../src/main/log', () => ({
+  log: { warn: () => undefined, error: () => undefined, info: () => undefined },
+}));
 
 const { Delivery } = await import('../../src/main/hub/Delivery');
 const { HubServer } = await import('../../src/main/hub/HubServer');
@@ -20,7 +22,8 @@ const tokens: Record<string, string> = {};
 
 beforeAll(async () => {
   await hub.start();
-  for (const [project, ids] of Object.entries(peers)) for (const id of ids) tokens[id] = hub.issueToken(id, project);
+  for (const [project, ids] of Object.entries(peers))
+    for (const id of ids) tokens[id] = hub.issueToken(id, project);
 });
 afterAll(() => hub.stop());
 
@@ -35,16 +38,24 @@ describe('HubServer (real pipe)', () => {
   });
 
   it('cannot message or read a terminal of another project', async () => {
-    await sendOnce({ path: hub.path, token: tokens.b1! }, { t: 'hook', event: 'SessionStart', at: Date.now() });
+    await sendOnce(
+      { path: hub.path, token: tokens.b1! },
+      { t: 'hook', event: 'SessionStart', at: Date.now() },
+    );
     await new Promise((r) => setTimeout(r, 50));
     const r = await client('a1').request<SendReport[]>('send', { to: 'b1', message: 'hi' });
     expect(r[0]!.status).toBe('rejected');
-    await expect(client('a1').request('read_output', { terminal: 'b1', lines: 10 })).rejects.toThrow(/project/);
+    await expect(client('a1').request('read_output', { terminal: 'b1', lines: 10 })).rejects.toThrow(
+      /project/,
+    );
     expect(await client('a1').request('read_output', { terminal: 'a2', lines: 10 })).toBe('a2:10');
   });
 
   it('applies hooks and delivers between sessions of one project', async () => {
-    await sendOnce({ path: hub.path, token: tokens.a2! }, { t: 'hook', event: 'SessionStart', at: Date.now() });
+    await sendOnce(
+      { path: hub.path, token: tokens.a2! },
+      { t: 'hook', event: 'SessionStart', at: Date.now() },
+    );
     await new Promise((r) => setTimeout(r, 50));
     const r = await client('a1').request<SendReport[]>('send', { to: 'a2', message: 'run the tests' });
     expect(r[0]!.status).toBe('delivered');
@@ -52,7 +63,9 @@ describe('HubServer (real pipe)', () => {
   });
 
   it('refuses unknown and revoked tokens', async () => {
-    await expect(new HubClient({ path: hub.path, token: 'nope' }, 'mcp').request('peers', {}, 2000)).rejects.toThrow();
+    await expect(
+      new HubClient({ path: hub.path, token: 'nope' }, 'mcp').request('peers', {}, 2000),
+    ).rejects.toThrow();
     const c = client('a1');
     await c.request('peers');
     hub.revoke('a1');

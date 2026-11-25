@@ -2,7 +2,7 @@ import { existsSync, statSync, writeFileSync } from 'node:fs';
 import { homedir, hostname } from 'node:os';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import type { BrowserWindow} from 'electron';
+import type { BrowserWindow } from 'electron';
 import { app, dialog, MessageChannelMain, nativeTheme, shell } from 'electron';
 import { parseSettings, type Settings } from '@shared/settings';
 import { parseWorkspace, type Workspace } from '@shared/workspace';

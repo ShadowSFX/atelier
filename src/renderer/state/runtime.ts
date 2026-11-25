@@ -45,7 +45,10 @@ export function patchRuntime(id: string, patch: Partial<TerminalRuntime>): void 
     const prev = s.terminals[id] ?? EMPTY;
     const next = { ...prev, ...patch };
     // Avoid re-rendering subscribers when nothing changed (activity/progress fire often).
-    if (Object.keys(patch).every((k) => prev[k as keyof TerminalRuntime] === next[k as keyof TerminalRuntime])) return s;
+    if (
+      Object.keys(patch).every((k) => prev[k as keyof TerminalRuntime] === next[k as keyof TerminalRuntime])
+    )
+      return s;
     return { terminals: { ...s.terminals, [id]: next } };
   });
 }

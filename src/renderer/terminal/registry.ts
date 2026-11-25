@@ -80,7 +80,10 @@ export function releaseTerminal(id: string, container: HTMLElement): void {
 /** Keeps WebGL only for visible terminals plus a few recently shown ones (Chromium caps contexts per page). */
 function balanceGpu(): void {
   const visible = [...controllers.values()].filter((c) => c.isVisible()).map((c) => c.id);
-  const keep = new Set([...visible, ...recent.filter((id) => !visible.includes(id)).slice(0, WEBGL_LRU_EXTRA)]);
+  const keep = new Set([
+    ...visible,
+    ...recent.filter((id) => !visible.includes(id)).slice(0, WEBGL_LRU_EXTRA),
+  ]);
   for (const c of controllers.values()) if (!keep.has(c.id) && c.hasGpuSlot()) c.setGpu(false);
 }
 
@@ -122,7 +125,11 @@ export function startSnapshotTimer(): void {
 /** Read-only inspection hook used by the end-to-end tests (WebGL draws text on a canvas, not in the DOM). */
 declare global {
   interface Window {
-    __atelier?: { ids(): string[]; text(id: string, lines?: number): string | null; gpu(id: string): boolean | null };
+    __atelier?: {
+      ids(): string[];
+      text(id: string, lines?: number): string | null;
+      gpu(id: string): boolean | null;
+    };
   }
 }
 window.__atelier = {

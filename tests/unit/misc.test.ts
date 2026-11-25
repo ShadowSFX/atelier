@@ -28,7 +28,13 @@ describe('i18n', () => {
 
 describe('settings', () => {
   it('fills defaults and clamps out-of-range values', () => {
-    const s = parseSettings({ fontSize: 99, lineHeight: 'x', cursor: 'beam', scrollback: -5, fontWeight: 450 });
+    const s = parseSettings({
+      fontSize: 99,
+      lineHeight: 'x',
+      cursor: 'beam',
+      scrollback: -5,
+      fontWeight: 450,
+    });
     expect(s.fontSize).toBe(32);
     expect(s.lineHeight).toBe(1.15);
     expect(s.cursor).toBe('bar');
@@ -53,7 +59,8 @@ describe('colors and schemes', () => {
   it('every scheme has 16 valid ANSI colors; auto follows the app theme', () => {
     for (const s of SCHEMES) {
       expect(s.ansi, s.id).toHaveLength(16);
-      for (const c of [s.background, s.foreground, s.cursor, ...s.ansi]) expect(normalizeColor(c), `${s.id} ${c}`).not.toBeNull();
+      for (const c of [s.background, s.foreground, s.cursor, ...s.ansi])
+        expect(normalizeColor(c), `${s.id} ${c}`).not.toBeNull();
     }
     expect(resolveScheme('auto', true).id).toBe('atelier-night');
     expect(resolveScheme('nope', false).id).toBe('atelier-day');

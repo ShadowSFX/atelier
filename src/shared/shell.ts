@@ -31,7 +31,8 @@ export function toWslPath(win: string, distro?: string): string | null {
   const drive = /^([a-z]):[\\/]?(.*)$/i.exec(win);
   if (drive) return `/mnt/${drive[1]!.toLowerCase()}/${drive[2]!.replace(/\\/g, '/')}`.replace(/\/+$/, '');
   const unc = /^\\\\(?:wsl\.localhost|wsl\$)\\([^\\]+)(\\.*)?$/i.exec(win);
-  if (unc && (!distro || unc[1]!.toLowerCase() === distro.toLowerCase())) return (unc[2] ?? '\\').replace(/\\/g, '/');
+  if (unc && (!distro || unc[1]!.toLowerCase() === distro.toLowerCase()))
+    return (unc[2] ?? '\\').replace(/\\/g, '/');
   return null;
 }
 
@@ -78,7 +79,12 @@ export function parseOsc7(data: string): { host: string; path: string } | null {
  */
 export function isLocalOscHost(host: string, localHost: string): boolean {
   const h = host.toLowerCase();
-  return h === '' || h === 'localhost' || h === localHost.toLowerCase() || h.split('.')[0] === localHost.toLowerCase();
+  return (
+    h === '' ||
+    h === 'localhost' ||
+    h === localHost.toLowerCase() ||
+    h.split('.')[0] === localHost.toLowerCase()
+  );
 }
 
 // ───────────── Quoting for paste/drop ─────────────
@@ -97,7 +103,8 @@ export function quotePath(path: string, kind: ShellKind, distro?: string): strin
     case 'gitbash':
       return posixQuote(/^[a-z]:[\\/]/i.test(path) || path.startsWith('\\\\') ? toGitBashPath(path) : path);
     case 'wsl': {
-      const p = /^[a-z]:[\\/]/i.test(path) || path.startsWith('\\\\') ? (toWslPath(path, distro) ?? path) : path;
+      const p =
+        /^[a-z]:[\\/]/i.test(path) || path.startsWith('\\\\') ? (toWslPath(path, distro) ?? path) : path;
       return posixQuote(p);
     }
     default:

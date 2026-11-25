@@ -99,7 +99,15 @@ export function buildLaunch(o: LaunchOptions): Launch {
       const script = scripts.powershell.replace(/'/g, "''");
       return {
         file: profile.file,
-        args: ['-NoLogo', '-NoExit', '-ExecutionPolicy', 'Bypass', '-Command', `. '${script}'`, ...profile.args],
+        args: [
+          '-NoLogo',
+          '-NoExit',
+          '-ExecutionPolicy',
+          'Bypass',
+          '-Command',
+          `. '${script}'`,
+          ...profile.args,
+        ],
         cwd: o.cwd,
         env,
       };
@@ -117,7 +125,12 @@ export function buildLaunch(o: LaunchOptions): Launch {
     case 'gitbash':
       env.ATELIER_LOGIN = '1';
       env.CHERE_INVOKING = '1'; // keeps Git Bash's /etc/profile from changing to $HOME
-      return { file: profile.file, args: ['--rcfile', scripts.bash.replace(/\\/g, '/'), '-i', ...profile.args], cwd: o.cwd, env };
+      return {
+        file: profile.file,
+        args: ['--rcfile', scripts.bash.replace(/\\/g, '/'), '-i', ...profile.args],
+        cwd: o.cwd,
+        env,
+      };
     case 'wsl': {
       env.ATELIER_LOGIN = '1';
       const linuxCwd = toWslPath(o.cwd, profile.distro);
@@ -126,7 +139,12 @@ export function buildLaunch(o: LaunchOptions): Launch {
       const prev = process.env.WSLENV ? process.env.WSLENV + ':' : '';
       env.WSLENV = prev + WSL_SHARED.join(':');
       const args = ['-d', profile.distro ?? '', ...(linuxCwd ? ['--cd', linuxCwd] : ['--cd', '~'])];
-      return { file: profile.file, args: [...args, '--', 'bash', '--rcfile', rc, '-i', ...profile.args], cwd: o.cwd, env };
+      return {
+        file: profile.file,
+        args: [...args, '--', 'bash', '--rcfile', rc, '-i', ...profile.args],
+        cwd: o.cwd,
+        env,
+      };
     }
     case 'bash':
       return { file: profile.file, args: ['--rcfile', scripts.bash, '-i', ...profile.args], cwd: o.cwd, env };

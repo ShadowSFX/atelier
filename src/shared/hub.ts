@@ -15,13 +15,7 @@ export interface Hello {
 }
 
 export type HookEvent =
-  | 'SessionStart'
-  | 'UserPromptSubmit'
-  | 'PreToolUse'
-  | 'PostToolUse'
-  | 'Stop'
-  | 'Notification'
-  | 'SessionEnd';
+  'SessionStart' | 'UserPromptSubmit' | 'PreToolUse' | 'PostToolUse' | 'Stop' | 'Notification' | 'SessionEnd';
 
 export interface HookMessage {
   t: 'hook';
@@ -55,7 +49,8 @@ export type HubRequest =
   | { t: 'req'; id: number; op: 'inbox' }
   | { t: 'req'; id: number; op: 'read_output'; terminal: string; lines: number };
 
-export type HubResponse = { t: 'res'; id: number; ok: true; result: unknown } | { t: 'res'; id: number; ok: false; error: string };
+export type HubResponse =
+  { t: 'res'; id: number; ok: true; result: unknown } | { t: 'res'; id: number; ok: false; error: string };
 
 export type ClientMessage = Hello | HookMessage | HubRequest;
 

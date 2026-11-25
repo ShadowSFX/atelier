@@ -126,7 +126,9 @@ export class Delivery {
   }
 
   peers(projectId: string, self: string): PeerInfo[] {
-    return this.deps.peersOf(projectId).map((p) => ({ ...p, claude: this.claudeState(p.id), self: p.id === self }));
+    return this.deps
+      .peersOf(projectId)
+      .map((p) => ({ ...p, claude: this.claudeState(p.id), self: p.id === self }));
   }
 
   send(projectId: string, from: string, to: string, text: string): SendReport[] {
@@ -135,11 +137,24 @@ export class Delivery {
     const sender = peers.find((p) => p.id === from);
     if (!message) return [{ to, name: '', status: 'rejected', reason: 'empty message' }];
     if (message.length > HUB_MAX_MESSAGE) {
-      return [{ to, name: '', status: 'rejected', reason: `message longer than ${HUB_MAX_MESSAGE} characters` }];
+      return [
+        { to, name: '', status: 'rejected', reason: `message longer than ${HUB_MAX_MESSAGE} characters` },
+      ];
     }
-    const targets = to === 'all' ? peers.filter((p) => p.id !== from && this.claudeState(p.id)) : peers.filter((p) => p.id === to);
+    const targets =
+      to === 'all'
+        ? peers.filter((p) => p.id !== from && this.claudeState(p.id))
+        : peers.filter((p) => p.id === to);
     if (targets.length === 0) {
-      return [{ to, name: '', status: 'rejected', reason: to === 'all' ? 'no other Claude session in this project' : 'no such terminal in this project' }];
+      return [
+        {
+          to,
+          name: '',
+          status: 'rejected',
+          reason:
+            to === 'all' ? 'no other Claude session in this project' : 'no such terminal in this project',
+        },
+      ];
     }
     return targets.map((t) => this.sendOne(from, sender?.name ?? from, t.id, t.name, message));
   }
@@ -147,11 +162,23 @@ export class Delivery {
   private sendOne(from: string, fromName: string, to: string, toName: string, text: string): SendReport {
     if (to === from) return { to, name: toName, status: 'rejected', reason: 'cannot send to yourself' };
     const target = this.state(to);
-    if (!target.claude) return { to, name: toName, status: 'rejected', reason: 'no Claude session runs in that terminal' };
+    if (!target.claude)
+      return { to, name: toName, status: 'rejected', reason: 'no Claude session runs in that terminal' };
     if (!this.allowRate(from, to)) {
-      return { to, name: toName, status: 'rejected', reason: `rate limit: at most ${HUB_RATE_PER_MINUTE} messages per minute to the same session` };
+      return {
+        to,
+        name: toName,
+        status: 'rejected',
+        reason: `rate limit: at most ${HUB_RATE_PER_MINUTE} messages per minute to the same session`,
+      };
     }
-    const msg: InboxMessage = { id: this.nextId++, from, fromName, text, at: new Date(this.deps.now()).toISOString() };
+    const msg: InboxMessage = {
+      id: this.nextId++,
+      from,
+      fromName,
+      text,
+      at: new Date(this.deps.now()).toISOString(),
+    };
     target.inbox.push(msg);
     if (target.inbox.length > MAX_INBOX) target.inbox.splice(0, target.inbox.length - MAX_INBOX);
 

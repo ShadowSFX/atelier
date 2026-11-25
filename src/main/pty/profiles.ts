@@ -16,22 +16,28 @@ export function which(name: string): string | null {
   return null;
 }
 
-const firstExisting = (paths: (string | undefined)[]) => paths.find((p): p is string => !!p && existsSync(p)) ?? null;
+const firstExisting = (paths: (string | undefined)[]) =>
+  paths.find((p): p is string => !!p && existsSync(p)) ?? null;
 
 /** WSL distributions (docker-desktop's internal ones are not shells). */
 function wslDistros(): Promise<string[]> {
   return new Promise((resolve) => {
-    execFile('wsl.exe', ['-l', '-q'], { encoding: 'buffer', timeout: 4000, windowsHide: true }, (err, stdout) => {
-      if (err) return resolve([]);
-      // wsl.exe writes UTF-16LE.
-      const text = stdout.toString('utf16le').replace(/\0/g, '');
-      resolve(
-        text
-          .split(/\r?\n/)
-          .map((s) => s.trim())
-          .filter((s) => s && !/^docker-desktop/i.test(s)),
-      );
-    });
+    execFile(
+      'wsl.exe',
+      ['-l', '-q'],
+      { encoding: 'buffer', timeout: 4000, windowsHide: true },
+      (err, stdout) => {
+        if (err) return resolve([]);
+        // wsl.exe writes UTF-16LE.
+        const text = stdout.toString('utf16le').replace(/\0/g, '');
+        resolve(
+          text
+            .split(/\r?\n/)
+            .map((s) => s.trim())
+            .filter((s) => s && !/^docker-desktop/i.test(s)),
+        );
+      },
+    );
   });
 }
 
@@ -48,7 +54,13 @@ async function windowsProfiles(): Promise<Profile[]> {
     file: join(sys, 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe'),
     args: [],
   });
-  out.push({ id: 'cmd', name: 'Command Prompt', kind: 'cmd', file: process.env.ComSpec ?? join(sys, 'System32', 'cmd.exe'), args: [] });
+  out.push({
+    id: 'cmd',
+    name: 'Command Prompt',
+    kind: 'cmd',
+    file: process.env.ComSpec ?? join(sys, 'System32', 'cmd.exe'),
+    args: [],
+  });
   const gitBash = firstExisting([
     join(pf, 'Git', 'bin', 'bash.exe'),
     process.env['ProgramFiles(x86)'] && join(process.env['ProgramFiles(x86)']!, 'Git', 'bin', 'bash.exe'),
@@ -57,7 +69,14 @@ async function windowsProfiles(): Promise<Profile[]> {
   if (gitBash) out.push({ id: 'gitbash', name: 'Git Bash', kind: 'gitbash', file: gitBash, args: [] });
   if (existsSync(join(sys, 'System32', 'wsl.exe'))) {
     for (const distro of await wslDistros()) {
-      out.push({ id: `wsl:${distro}`, name: `WSL · ${distro}`, kind: 'wsl', file: join(sys, 'System32', 'wsl.exe'), args: [], distro });
+      out.push({
+        id: `wsl:${distro}`,
+        name: `WSL · ${distro}`,
+        kind: 'wsl',
+        file: join(sys, 'System32', 'wsl.exe'),
+        args: [],
+        distro,
+      });
     }
   }
   return out;

@@ -105,7 +105,9 @@ export async function loadApp(): Promise<void> {
     profiles: profiles.profiles,
     defaultProfileId: profiles.defaultId,
   });
-  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => useApp.setState({ dark: e.matches }));
+  window
+    .matchMedia('(prefers-color-scheme: dark)')
+    .addEventListener('change', (e) => useApp.setState({ dark: e.matches }));
   api.on('update:status', (update) => useApp.setState({ update }));
 }
 
@@ -138,7 +140,12 @@ export function closeMenu(): void {
   useApp.setState({ menu: null });
 }
 
-export function confirmDialog(o: { title: string; body?: string; ok: string; danger?: boolean }): Promise<boolean> {
+export function confirmDialog(o: {
+  title: string;
+  body?: string;
+  ok: string;
+  danger?: boolean;
+}): Promise<boolean> {
   return new Promise((resolve) => {
     useApp.setState({ dialog: { kind: 'confirm', ...o, resolve: (r) => resolve(r === true) } });
   });
@@ -146,6 +153,8 @@ export function confirmDialog(o: { title: string; body?: string; ok: string; dan
 
 export function promptDialog(o: { title: string; value: string; ok: string }): Promise<string | null> {
   return new Promise((resolve) => {
-    useApp.setState({ dialog: { kind: 'prompt', ...o, resolve: (r) => resolve(typeof r === 'string' ? r : null) } });
+    useApp.setState({
+      dialog: { kind: 'prompt', ...o, resolve: (r) => resolve(typeof r === 'string' ? r : null) },
+    });
   });
 }

@@ -184,7 +184,9 @@
   color: #fff;
 }
 .swatch:hover {
-  box-shadow: 0 0 0 2px var(--bg-popup), 0 0 0 3px var(--fg-3);
+  box-shadow:
+    0 0 0 2px var(--bg-popup),
+    0 0 0 3px var(--fg-3);
 }
 .swatchNone {
   border: 1px dashed var(--fg-3);

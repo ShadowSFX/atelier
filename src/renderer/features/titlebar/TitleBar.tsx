@@ -1,4 +1,12 @@
-import { Add16Regular, Dismiss12Regular, Folder16Regular, FolderOpen16Regular, Rename16Regular, Search16Regular, Settings16Regular } from '@fluentui/react-icons';
+import {
+  Add16Regular,
+  Dismiss12Regular,
+  Folder16Regular,
+  FolderOpen16Regular,
+  Rename16Regular,
+  Search16Regular,
+  Settings16Regular,
+} from '@fluentui/react-icons';
 import { useState } from 'react';
 import type { Project } from '@shared/workspace';
 import { cx, IconButton } from '../../components/Button';
@@ -27,12 +35,26 @@ function projectMenu(p: Project, x: number, y: number): void {
       label: t('projects.rename'),
       icon: <Rename16Regular />,
       run: () =>
-        void promptDialog({ title: t('projects.rename'), value: p.name, ok: t('common.rename') }).then((name) => name && renameProject(p.id, name)),
+        void promptDialog({ title: t('projects.rename'), value: p.name, ok: t('common.rename') }).then(
+          (name) => name && renameProject(p.id, name),
+        ),
     },
-    { label: t('projects.color'), custom: <ColorSwatches value={p.color} onPick={(c) => setProjectColor(p.id, c)} /> },
-    { label: t('projects.reveal'), icon: <FolderOpen16Regular />, run: () => void api.invoke('shell:open-path', p.path) },
+    {
+      label: t('projects.color'),
+      custom: <ColorSwatches value={p.color} onPick={(c) => setProjectColor(p.id, c)} />,
+    },
+    {
+      label: t('projects.reveal'),
+      icon: <FolderOpen16Regular />,
+      run: () => void api.invoke('shell:open-path', p.path),
+    },
     'separator',
-    { label: t('projects.close'), icon: <Dismiss12Regular />, danger: true, run: () => void closeProject(p.id) },
+    {
+      label: t('projects.close'),
+      icon: <Dismiss12Regular />,
+      danger: true,
+      run: () => void closeProject(p.id),
+    },
   ]);
 }
 
@@ -45,7 +67,19 @@ function useAttention(p: Project, active: boolean): 'activity' | 'claude' | null
   });
 }
 
-function ProjectTab({ p, active, index, dropBefore, onDropIndex }: { p: Project; active: boolean; index: number; dropBefore: boolean; onDropIndex: (i: number | null) => void }) {
+function ProjectTab({
+  p,
+  active,
+  index,
+  dropBefore,
+  onDropIndex,
+}: {
+  p: Project;
+  active: boolean;
+  index: number;
+  dropBefore: boolean;
+  onDropIndex: (i: number | null) => void;
+}) {
   const tr = useT();
   const attention = useAttention(p, active);
   return (
@@ -80,7 +114,13 @@ function ProjectTab({ p, active, index, dropBefore, onDropIndex }: { p: Project;
         {attention && <span className={cx(s.dot, attention === 'claude' && s.dotAttention)} />}
       </span>
       <span className={s.name}>{p.name}</span>
-      <IconButton label={tr('projects.close')} size="sm" className={s.close} onPointerDown={(e) => e.stopPropagation()} onClick={() => void closeProject(p.id)}>
+      <IconButton
+        label={tr('projects.close')}
+        size="sm"
+        className={s.close}
+        onPointerDown={(e) => e.stopPropagation()}
+        onClick={() => void closeProject(p.id)}
+      >
         <Dismiss12Regular />
       </IconButton>
     </div>
@@ -112,7 +152,8 @@ export function TitleBar() {
     <header
       className={s.bar}
       onDragOver={(e) => {
-        if (e.dataTransfer.types.includes(PROJECT_DRAG) || e.dataTransfer.types.includes('Files')) e.preventDefault();
+        if (e.dataTransfer.types.includes(PROJECT_DRAG) || e.dataTransfer.types.includes('Files'))
+          e.preventDefault();
       }}
       onDragLeave={(e) => !e.currentTarget.contains(e.relatedTarget as Node) && setDropIndex(null)}
       onDrop={onDrop}
@@ -122,11 +163,24 @@ export function TitleBar() {
       </div>
       <div className={s.tabs} role="tablist" aria-label="Projects">
         {projects.map((p, i) => (
-          <ProjectTab key={p.id} p={p} index={i} active={p.id === activeId} dropBefore={dropIndex === i} onDropIndex={setDropIndex} />
+          <ProjectTab
+            key={p.id}
+            p={p}
+            index={i}
+            active={p.id === activeId}
+            dropBefore={dropIndex === i}
+            onDropIndex={setDropIndex}
+          />
         ))}
-        {dropIndex === projects.length && <span className={s.dropBefore} style={{ position: 'relative', width: 0, height: 22 }} />}
+        {dropIndex === projects.length && (
+          <span className={s.dropBefore} style={{ position: 'relative', width: 0, height: 22 }} />
+        )}
       </div>
-      <IconButton label={`${t('projects.add')} (Ctrl+Shift+O)`} className={s.add} onClick={() => void pickAndAddProject()}>
+      <IconButton
+        label={`${t('projects.add')} (Ctrl+Shift+O)`}
+        className={s.add}
+        onClick={() => void pickAndAddProject()}
+      >
         <Add16Regular />
       </IconButton>
       <div className={s.spacer} />
@@ -136,7 +190,10 @@ export function TitleBar() {
         <span className={s.kbd}>Ctrl Shift P</span>
       </button>
       <div className={s.tools}>
-        <IconButton label={`${t('settings.title')} (Ctrl+,)`} onClick={() => useApp.setState({ settingsOpen: true })}>
+        <IconButton
+          label={`${t('settings.title')} (Ctrl+,)`}
+          onClick={() => useApp.setState({ settingsOpen: true })}
+        >
           <Settings16Regular />
         </IconButton>
       </div>

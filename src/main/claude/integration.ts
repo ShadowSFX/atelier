@@ -41,10 +41,19 @@ const sq = (s: string) => `"${s.replace(/(["\\$`])/g, '\\$1')}"`;
 
 function settingsJson(hookCommand: string): string {
   const hooks = Object.fromEntries(
-    HOOKS.map(({ event, async }) => [event, [{ hooks: [{ type: 'command', command: hookCommand, timeout: 10, ...(async ? { async: true } : {}) }] }]]),
+    HOOKS.map(({ event, async }) => [
+      event,
+      [
+        {
+          hooks: [{ type: 'command', command: hookCommand, timeout: 10, ...(async ? { async: true } : {}) }],
+        },
+      ],
+    ]),
   );
   // The atelier_* tools only reach this project's terminals: allowed without a prompt so coordination stays fluid.
-  const allow = ['atelier_peers', 'atelier_send', 'atelier_inbox', 'atelier_read_output'].map((t) => `mcp__atelier__${t}`);
+  const allow = ['atelier_peers', 'atelier_send', 'atelier_inbox', 'atelier_read_output'].map(
+    (t) => `mcp__atelier__${t}`,
+  );
   return JSON.stringify({ permissions: { allow, deny: ['ListAgents', 'SendMessage'] }, hooks }, null, 2);
 }
 
@@ -80,7 +89,10 @@ export function writeClaudeFiles(dir: string, a: AgentPaths): ClaudeFiles {
     // Windows process only when listed in WSLENV; script paths stay Windows paths (they are Atelier.exe's argv).
     const execWsl = toWslPath(a.exec) ?? posix(a.exec);
     const wslenv = 'WSLENV="$WSLENV:ELECTRON_RUN_AS_NODE:ATELIER_HUB:ATELIER_TOKEN"';
-    writeIfChanged(files.settingsWsl, settingsJson(`${wslenv} ELECTRON_RUN_AS_NODE=1 ${sq(execWsl)} ${sq(a.hookScript)}`));
+    writeIfChanged(
+      files.settingsWsl,
+      settingsJson(`${wslenv} ELECTRON_RUN_AS_NODE=1 ${sq(execWsl)} ${sq(a.hookScript)}`),
+    );
     writeIfChanged(
       files.mcpWsl,
       mcpJson(execWsl, [a.mcpScript], {

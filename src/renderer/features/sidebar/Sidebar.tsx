@@ -42,13 +42,26 @@ function terminalMenu(term: TerminalSpec, x: number, y: number): void {
       shortcut: 'F2',
       run: () => void renameFlow(term),
     },
-    { label: t('terminals.color'), custom: <ColorSwatches value={term.color} onPick={(color) => updateTerminal(term.id, { color })} /> },
+    {
+      label: t('terminals.color'),
+      custom: <ColorSwatches value={term.color} onPick={(color) => updateTerminal(term.id, { color })} />,
+    },
     'separator',
     { label: t('terminals.splitRight'), icon: <SplitVertical16Regular />, run: () => openRight(term.id) },
-    { label: t('terminals.duplicate'), icon: <SquareMultiple16Regular />, run: () => duplicateTerminal(term.id) },
+    {
+      label: t('terminals.duplicate'),
+      icon: <SquareMultiple16Regular />,
+      run: () => duplicateTerminal(term.id),
+    },
     { label: t('terminals.restart'), icon: <ArrowClockwise16Regular />, run: () => restartTerminal(term.id) },
     'separator',
-    { label: t('terminals.close'), icon: <Dismiss12Regular />, shortcut: 'Ctrl+Shift+W', danger: true, run: () => void closeTerminal(term.id) },
+    {
+      label: t('terminals.close'),
+      icon: <Dismiss12Regular />,
+      shortcut: 'Ctrl+Shift+W',
+      danger: true,
+      run: () => void closeTerminal(term.id),
+    },
   ]);
 }
 
@@ -81,7 +94,9 @@ function ClaudeBadge({ id }: { id: string }) {
   const tr = useT();
   const status = useRuntime((st) => st.claude[id]);
   if (!status?.state) return null;
-  const label = tr(status.state === 'idle' ? 'claude.idle' : status.state === 'busy' ? 'claude.busy' : 'claude.permission');
+  const label = tr(
+    status.state === 'idle' ? 'claude.idle' : status.state === 'busy' ? 'claude.busy' : 'claude.permission',
+  );
   return (
     <button
       type="button"
@@ -126,7 +141,14 @@ const Row = memo(function Row({
       role="option"
       aria-selected={focused}
       tabIndex={0}
-      className={cx(s.row, visible && s.visible, focused && s.focused, dragging && s.dragging, drop === 'above' && s.dropAbove, drop === 'below' && s.dropBelow)}
+      className={cx(
+        s.row,
+        visible && s.visible,
+        focused && s.focused,
+        dragging && s.dragging,
+        drop === 'above' && s.dropAbove,
+        drop === 'below' && s.dropBelow,
+      )}
       draggable
       onDragStart={(e) => {
         e.dataTransfer.setData(TERMINAL_DRAG, term.id);
@@ -165,7 +187,9 @@ const Row = memo(function Row({
         {usage?.foreground ? (
           <span className={cx(s.metaItem, s.proc)}>{usage.foreground}</span>
         ) : rt?.status === 'exited' ? (
-          <span className={cx(s.metaItem, s.exited)}>{t('term.exited', rt.exitCode ?? 0).replace(/\.$/, '')}</span>
+          <span className={cx(s.metaItem, s.exited)}>
+            {t('term.exited', rt.exitCode ?? 0).replace(/\.$/, '')}
+          </span>
         ) : null}
         {term.lastCwd && <span className={cx(s.metaItem, s.cwd)}>{shortPath(term.lastCwd, home)}</span>}
         {rt?.branch && (
@@ -187,7 +211,13 @@ const Row = memo(function Row({
         )}
       </span>
       {progress && (
-        <span className={cx(s.progress, progress.state === 2 && s.progressError, progress.state === 3 && s.progressIndeterminate)}>
+        <span
+          className={cx(
+            s.progress,
+            progress.state === 2 && s.progressError,
+            progress.state === 3 && s.progressIndeterminate,
+          )}
+        >
           <span style={progress.state === 3 ? undefined : { width: `${progress.value}%` }} />
         </span>
       )}
@@ -209,7 +239,11 @@ export function Sidebar() {
       <div className={s.header}>
         <span className={s.title}>{tr('terminals.title')}</span>
         <span className={s.newGroup}>
-          <IconButton label={`${tr('terminals.new')} (Ctrl+Shift+T)`} size="sm" onClick={() => newTerminalInActive()}>
+          <IconButton
+            label={`${tr('terminals.new')} (Ctrl+Shift+T)`}
+            size="sm"
+            onClick={() => newTerminalInActive()}
+          >
             <Add16Regular />
           </IconButton>
           <IconButton

@@ -23,6 +23,10 @@ export function handle<K extends keyof Invoke>(channel: K, fn: Handler<K>): void
   });
 }
 
-export function send<K extends keyof Events>(win: BrowserWindow | null, channel: K, ...args: Parameters<Events[K]>): void {
+export function send<K extends keyof Events>(
+  win: BrowserWindow | null,
+  channel: K,
+  ...args: Parameters<Events[K]>
+): void {
   if (win && !win.isDestroyed() && !win.webContents.isDestroyed()) win.webContents.send(channel, ...args);
 }
