@@ -8,7 +8,9 @@ Atelier terminal talk only to the sessions of their own project (the "hub").
 - Dev: `npm run dev` (electron-vite, renderer HMR).
 - Checks: `npm run typecheck`, `npm run lint`, `npm test` (Vitest, `tests/unit`).
 - Build: `npm run build` (allowed for Claude in this repo). E2E: `npm run build && npm run e2e` (Playwright drives the
-  built app with a throwaway profile via `ATELIER_USER_DATA`).
+  built app with a throwaway profile via `ATELIER_USER_DATA`; `window.__atelier` exposes terminal text because WebGL
+  draws on a canvas). `ATELIER_E2E_CLAUDE=1 npm run e2e` also runs two real Claude Code sessions through the hub
+  (uses the API). Note: the app asks before closing terminals that run programs; tests destroy the window instead.
 - Packages: `npm run dist` / `dist:win` / `dist:linux` — the owner's call, not Claude's. Release: push tag `vX.Y.Z`
   (`.github/workflows/release.yml` publishes installer + AppImage + deb + latest*.yml for the auto-updater).
 
@@ -35,7 +37,10 @@ Atelier terminal talk only to the sessions of their own project (the "hub").
 - PTY output → renderer only through the MessagePort; xterm's write callback acks; main pauses the PTY above
   `FLOW_HIGH_WATER`. Constants live in `shared/constants.ts`.
 - Hub scope comes from the token (`HubServer.issueToken`), never from the client. `Delivery` types a message into an
-  idle session as a bracketed paste (ESC stripped) + Enter; otherwise queues it.
+  idle session as a bracketed paste (control characters stripped) + Enter; otherwise queues it. Never into a
+  permission prompt. A terminal's Claude state is cleared when its shell (re)starts or its shell prompt (OSC 133;A)
+  comes back. Shell env drops a parent Claude Code session's variables (`STRIP_ENV` in PtyManager).
+- Git Bash reports `pwd -W` in OSC 7 (Windows paths); WSL paths map to `\\wsl.localhost\<distro>\…`.
 - Shell scripts: `atelier.ps1` must stay ASCII (PowerShell 5.1 reads BOM-less files as ANSI; a test checks it);
   bash/zsh are written with LF. Every script emits OSC 133 A/B/D, OSC 7 (percent-encoded) and `633;P;GitBranch`.
 - Native modules must not need a compiler: node-pty uses its N-API prebuilds on Windows (`npmRebuild: false`),

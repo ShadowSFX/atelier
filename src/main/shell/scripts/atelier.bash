@@ -77,7 +77,11 @@ __atelier_prompt() {
   local ec=$? elapsed=
   if [ -n "$__atelier_start" ]; then elapsed=$((SECONDS - __atelier_start)); fi
   __atelier_start=
-  __atelier_urlencode "$PWD"
+  if [ "$PWD" != "$__atelier_lastpwd" ]; then
+    __atelier_lastpwd=$PWD
+    # Git Bash: report the Windows path (/tmp is %TEMP%, / is Git's folder…); only when the directory changed.
+    if [ -n "$MSYSTEM" ]; then __atelier_urlencode "/$(builtin pwd -W)"; else __atelier_urlencode "$PWD"; fi
+  fi
   printf '\033]133;D;%s\007\033]7;file://%s%s\007\033]133;A\007' "$ec" "$__atelier_host" "$__atelier_url"
 
   if [ -z "$ATELIER_POWERLINE" ]; then return $ec; fi

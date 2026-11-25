@@ -112,6 +112,7 @@ export class StatsService {
 
     for (const [id, tree] of wanted) {
       const shell = details.get(tree[0]!);
+      const shellName = (list.get(tree[0]!)?.name ?? '').toLowerCase();
       let cpu = 0;
       let memory = 0;
       let fg: { name: string; started: number } | null = null;
@@ -124,7 +125,10 @@ export class StatsService {
         this.lastProcCpu.set(pid, d.cpuMs);
         if (prev !== undefined) cpu += Math.max(0, d.cpuMs - prev) / elapsedMs / cores;
         memory += d.memory;
-        if (pid !== tree[0] && (!fg || d.started >= fg.started)) fg = { name: list.get(pid)?.name ?? '', started: d.started };
+        const name = list.get(pid)?.name ?? '';
+        // Git Bash's bin\bash.exe re-runs usr\bin\bash.exe: the shell itself is not "what runs".
+        const isShell = name.toLowerCase() === shellName;
+        if (pid !== tree[0] && !isShell && (!fg || d.started >= fg.started)) fg = { name, started: d.started };
       }
       out.push({ terminalId: id, cpu: Math.min(1, cpu), memory, foreground: fg ? fg.name.replace(/\.exe$/i, '') : null });
     }
@@ -139,7 +143,12 @@ export class StatsService {
     const list = this.sampler.list();
     return terminalIds.filter((id) => {
       const pid = shells.get(id);
-      return pid ? descendants(list, pid).some((p) => p !== pid && !isPlumbing(list.get(p)?.name ?? '')) : false;
+      if (!pid) return false;
+      const shellName = (list.get(pid)?.name ?? '').toLowerCase();
+      return descendants(list, pid).some((p) => {
+        const name = list.get(p)?.name ?? '';
+        return p !== pid && !isPlumbing(name) && name.toLowerCase() !== shellName;
+      });
     });
   }
 }

@@ -209,7 +209,7 @@ export class TerminalController {
     const { project, terminal } = found;
     this.unlisten?.();
     this.unlisten = ptyPort.listen(this.id, (f) => this.onFrame(f));
-    patchRuntime(this.id, { status: 'starting', exitCode: undefined, error: undefined });
+    patchRuntime(this.id, { status: 'starting', exitCode: undefined, error: undefined, ready: false });
     const cwd = terminal.lastCwd ?? project.path;
     const r = await api.invoke('pty:spawn', {
       terminalId: this.id,
@@ -413,7 +413,9 @@ export class TerminalController {
         if (!this.ackTimer) this.ackTimer = window.setTimeout(() => this.flushAck(), ACK_INTERVAL_MS);
       });
       this.dirty = true;
-      if (!this.visible && !runtimeOf(this.id).activity) patchRuntime(this.id, { activity: true });
+      const rt = runtimeOf(this.id);
+      if (!rt.ready) patchRuntime(this.id, { ready: true });
+      if (!this.visible && !rt.activity) patchRuntime(this.id, { activity: true });
       return;
     }
     patchRuntime(this.id, { status: 'exited', exitCode: f.code });

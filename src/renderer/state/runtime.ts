@@ -12,6 +12,8 @@ export interface TerminalRuntime {
   distro?: string;
   /** Window title set by the program (OSC 0/2). */
   title?: string;
+  /** The shell printed something (WSL can take seconds to boot: the pane says it is starting until then). */
+  ready?: boolean;
   /** Output arrived while the terminal was not visible. */
   activity: boolean;
   /** OSC 9;4 progress: state 0 none, 1 value, 2 error, 3 indeterminate, 4 paused. */

@@ -113,6 +113,23 @@
   background: var(--accent);
 }
 
+.starting {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  display: grid;
+  place-items: center;
+  color: var(--fg-3);
+  font-size: var(--fs-caption);
+  pointer-events: none;
+  animation: fade-in 200ms 600ms both;
+}
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
 /* ───────────── Drop zones (terminal dragged from the sidebar) ───────────── */
 
 .dropLayer {

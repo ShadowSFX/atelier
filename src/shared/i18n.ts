@@ -55,6 +55,7 @@ export const STRINGS = {
   'pane.empty': ['Elige una terminal de la izquierda o crea una nueva.', 'Pick a terminal on the left or create a new one.'],
 
   // Terminal
+  'term.starting': ['Iniciando {0}…', 'Starting {0}…'],
   'term.exited': ['El proceso terminó con código {0}.', 'The process exited with code {0}.'],
   'term.restartHint': ['Enter para reiniciar', 'Enter to restart'],
   'term.spawnFailed': ['No se pudo iniciar {0}: {1}', "Couldn't start {0}: {1}"],

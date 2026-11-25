@@ -1,4 +1,5 @@
-import { mkdirSync, mkdtempSync, rmSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 /** The renderer's inspection hook (src/renderer/terminal/registry.ts), as seen from page.evaluate. */
@@ -114,6 +115,19 @@ test('projects, terminals, panes, no stale paint, restore', async () => {
   await waitText(page, a!, /line 20000/, 60_000);
 
   // Split: a second column with a new terminal.
+  // Ctrl+V with files copied in Explorer pastes their paths, quoted for PowerShell.
+  if (process.platform === 'win32') {
+    const f1 = join(projA, "it's a file.txt");
+    const f2 = join(projA, 'plain.txt');
+    writeFileSync(f1, 'x');
+    writeFileSync(f2, 'x');
+    execFileSync('powershell.exe', ['-NoProfile', '-Command', `Set-Clipboard -LiteralPath '${f1.replace(/'/g, "''")}','${f2}'`]);
+    await page.locator('main section').first().click();
+    await page.keyboard.press('Control+v');
+    await waitText(page, a!, /'[^\n]*it''s a file\.txt' [^\n]*plain\.txt/);
+    await page.keyboard.press('Escape'); // PSReadLine: clear the line
+  }
+
   await page.locator('main section').first().click();
   await page.keyboard.press('Control+Shift+Digit5');
   await expect(page.locator('main section')).toHaveCount(2);

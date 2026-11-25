@@ -6,6 +6,7 @@ import { Button, cx, IconButton } from '../../components/Button';
 import { api } from '../../lib/api';
 import { shortPath } from '../../lib/format';
 import { useApp, useT } from '../../state/app';
+import { useRuntime } from '../../state/runtime';
 import {
   activeProject,
   addProject,
@@ -67,6 +68,10 @@ function PaneSlot({ project, index, weight }: { project: Project; index: number;
   const home = useApp((st) => st.home);
   const body = useRef<HTMLDivElement>(null);
   const [ctrl, setCtrl] = useState<TerminalController | null>(null);
+  const starting = useRuntime((st) => {
+    const rt = st.terminals[column.terminalId];
+    return !rt || ((rt.status === 'starting' || rt.status === 'running') && !rt.ready);
+  });
 
   useLayoutEffect(() => {
     const el = body.current;
@@ -105,6 +110,7 @@ function PaneSlot({ project, index, weight }: { project: Project; index: number;
       </div>
       <div ref={body} className={s.body}>
         {ctrl && <SearchBar c={ctrl} />}
+        {starting && <div className={s.starting}>{t('term.starting', term?.name ?? '')}</div>}
         {dragging && <DropLayer index={index} full={columns >= MAX_COLUMNS} />}
       </div>
     </section>
