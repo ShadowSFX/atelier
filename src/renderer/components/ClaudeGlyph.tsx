@@ -11,8 +11,8 @@ export const CLAUDE_LABEL = {
 } as const satisfies Record<ClaudeState, string>;
 
 /**
- * A Claude session's state as a glyph, the same shapes as the sidebar row's status: hollow ring (idle), turning arc
- * (busy), dot with a halo (waiting), check mark drawn once (done). The shape differs per state, so it reads without
+ * A Claude session's state as a glyph (sidebar row status, project tab): hollow ring (idle), turning arc (busy),
+ * dot with a halo (waiting), check mark drawn once (done). The shape differs per state, so it reads without
  * color or motion. Decorative: the caller names the state (tooltip or label).
  */
 export function ClaudeGlyph({ state, className }: { state: ClaudeState; className?: string }) {

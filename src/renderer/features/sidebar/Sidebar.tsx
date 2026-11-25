@@ -10,9 +10,9 @@ import {
   SquareMultiple16Regular,
 } from '@fluentui/react-icons';
 import { memo, useState } from 'react';
-import type { ClaudeState } from '@shared/ipc';
 import type { TerminalSpec } from '@shared/workspace';
 import { cx, IconButton } from '../../components/Button';
+import { CLAUDE_LABEL, ClaudeGlyph } from '../../components/ClaudeGlyph';
 import { ColorSwatches } from '../../components/Overlays';
 import { api } from '../../lib/api';
 import { bytes, percent } from '../../lib/format';
@@ -100,25 +100,9 @@ function profileMenu(x: number, y: number): void {
   );
 }
 
-const CLAUDE_LABEL = {
-  idle: 'claude.idle',
-  busy: 'claude.busy',
-  waiting: 'claude.waiting',
-  done: 'claude.done',
-} as const satisfies Record<ClaudeState, string>;
-
-/** Finished: a check mark that draws itself once when the turn ends. */
-function DoneGlyph() {
-  return (
-    <svg className={s.check} viewBox="0 0 10 10" aria-hidden>
-      <path d="M2 5.3 4.2 7.4 8 3" />
-    </svg>
-  );
-}
-
 /**
  * What the terminal's Claude session is doing, on the row's second line. Each state has its own shape as well as its
- * color (spinning arc, dot with a halo, check mark, hollow ring), so it reads without color or motion too.
+ * color (ClaudeGlyph: spinning arc, dot with a halo, check mark, hollow ring), so it reads without color or motion.
  * Clicking it delivers queued hub messages right away.
  */
 function ClaudeStatus({ id }: { id: string }) {
@@ -143,7 +127,7 @@ function ClaudeStatus({ id }: { id: string }) {
         void api.invoke('claude:deliver-now', id);
       }}
     >
-      {state === 'done' ? <DoneGlyph /> : <span className={s.glyph} aria-hidden />}
+      <ClaudeGlyph state={state} />
       <span className={s.claudeLabel}>{label}</span>
       {queued > 0 && <span className={s.queued}>{queued}</span>}
     </button>

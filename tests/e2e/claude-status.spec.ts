@@ -59,6 +59,7 @@ test('Claude status and title on the sidebar row', async () => {
     await emit(app, 'claude:status', { terminalId: id, state, queued: 0 } satisfies ClaudeStatus);
     await expect(status).toHaveAttribute('data-claude-state', state!);
     await expect(status).toHaveText(label);
+    await expect(status.locator(`[data-claude-glyph="${state}"]`)).toHaveCount(1);
   }
   await emit(app, 'claude:status', { terminalId: id, state: 'idle', queued: 2 } satisfies ClaudeStatus);
   await expect(status).toContainText('2');

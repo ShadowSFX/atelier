@@ -183,30 +183,13 @@
 .claudeQueued:hover .claudeLabel {
   text-decoration: underline;
 }
-.glyph {
-  position: relative;
-  flex: none;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-}
-
-/* Idle: a hollow ring, still. */
+/* Idle. The glyphs (ring, arc, halo, check) come from components/ClaudeGlyph. */
 .idle {
   font-weight: 500;
 }
-.idle .glyph {
-  border: 1.5px solid var(--fg-3);
-}
-
-/* Processing: an arc turning, and a light passing over the label. */
+/* Processing: a light passing over the label. */
 .busy {
   --tone: color-mix(in srgb, var(--accent-text) 80%, var(--fg-1));
-}
-.busy .glyph {
-  border: 1.5px solid color-mix(in srgb, var(--accent) 28%, transparent);
-  border-top-color: var(--accent);
-  animation: spin 0.9s linear infinite;
 }
 .busy .claudeLabel {
   background: linear-gradient(
@@ -224,40 +207,14 @@
   animation: shimmer 2.4s linear infinite;
 }
 
-/* Waiting for answers: a dot with a halo going out, the one state that keeps asking for attention. */
+/* Waiting for answers. */
 .waiting {
   --tone: color-mix(in srgb, var(--warn) 78%, var(--fg-1));
 }
-.waiting .glyph {
-  background: var(--warn);
-}
-.waiting .glyph::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: 50%;
-  background: var(--warn);
-  animation: halo 1.6s ease-out infinite;
-}
-
-/* Finished: a check mark drawn once. */
+/* Finished. */
 .done {
   --tone: color-mix(in srgb, var(--online) 72%, var(--fg-1));
 }
-.check {
-  flex: none;
-  width: 10px;
-  height: 10px;
-  fill: none;
-  stroke: var(--online);
-  stroke-width: 1.9;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  stroke-dasharray: 10;
-  stroke-dashoffset: 0;
-  animation: draw 0.45s ease-out;
-}
-
 .queued {
   min-width: 14px;
   padding: 0 4px;
@@ -268,11 +225,6 @@
   line-height: 14px;
   text-align: center;
 }
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
 @keyframes shimmer {
   from {
     background-position: 100% 0;
@@ -281,22 +233,6 @@
     background-position: 0% 0;
   }
 }
-@keyframes halo {
-  from {
-    transform: scale(1);
-    opacity: 0.55;
-  }
-  to {
-    transform: scale(2.6);
-    opacity: 0;
-  }
-}
-@keyframes draw {
-  from {
-    stroke-dashoffset: 10;
-  }
-}
-
 .progress {
   position: absolute;
   left: 16px;

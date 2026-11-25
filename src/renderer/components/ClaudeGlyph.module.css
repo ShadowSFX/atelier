@@ -1,5 +1,5 @@
 /*
- * Same shapes and colors as the sidebar row's Claude status (features/sidebar/Sidebar.module.css).
+ * Claude's state glyphs, shared by the sidebar row's status and the project tab.
  * Callers size it with --glyph (ring/dot, 8px), --stroke (ring width, 1.5px), --check (check mark, 10px) and --box
  * (the square they sit centered in, auto). Defaults are var() fallbacks, so a caller's class wins whatever order
  * the stylesheets load in.
