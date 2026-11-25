@@ -10,10 +10,12 @@ import { WebglAddon } from '@xterm/addon-webgl';
 import { Terminal, type IMarker } from '@xterm/xterm';
 import { ACK_INTERVAL_MS } from '@shared/constants';
 import type { PtyFrame } from '@shared/ipc';
+import { formatDuration } from '@shared/notify';
 import type { Settings } from '@shared/settings';
 import { isLocalOscHost, parseOsc7, quotePaths, shellPathToNative, type ShellKind } from '@shared/shell';
 import { api, ptyPort } from '../lib/api';
 import { confirmDialog, openMenu, t, toast, useApp } from '../state/app';
+import { claudeSince, notify } from '../state/notifications';
 import { patchRuntime, runtimeOf, useRuntime } from '../state/runtime';
 import { findTerminal, setLastCwd } from '../state/workspace';
 import { appShortcut, runShortcut } from './shortcuts';
@@ -81,6 +83,13 @@ export class TerminalController {
   private baseFontSize = 13;
   private unlisten: (() => void) | null = null;
   private readonly prompts: { marker: IMarker; exit: number | null }[] = [];
+  /** End of the last prompt (OSC 133;B): the command the user types starts here. */
+  private promptEnd: { marker: IMarker; x: number } | null = null;
+  /**
+   * The command running now (from Enter or OSC 133;C to OSC 133;D). interactive = it used the alternate screen;
+   * interrupted = the user pressed Ctrl+C meanwhile (they are there and stopped it themselves).
+   */
+  private command: { start: number; interactive: boolean; interrupted: boolean } | null = null;
   private readonly listeners = new Set<Listener>();
   private readonly observer: ResizeObserver;
   /** Output since the last snapshot save. */
@@ -162,6 +171,9 @@ export class TerminalController {
     this.term.onBinary((d) => this.input(d));
     this.term.onTitleChange((title) => patchRuntime(this.id, { title }));
     this.term.onBell(() => this.bell());
+    this.term.buffer.onBufferChange((b) => {
+      if (b.type === 'alternate' && this.command) this.command.interactive = true;
+    });
     this.term.onSelectionChange(() => {
       if (useApp.getState().settings.copyOnSelect && this.term.hasSelection()) void this.copy(false);
     });
@@ -248,6 +260,7 @@ export class TerminalController {
     const { project, terminal } = found;
     this.unlisten?.();
     this.unlisten = ptyPort.listen(this.id, (f) => this.onFrame(f));
+    this.command = null; // a new shell runs nothing yet
     patchRuntime(this.id, { status: 'starting', exitCode: undefined, error: undefined, ready: false });
     const cwd = terminal.lastCwd ?? project.path;
     const r = await api.invoke('pty:spawn', {
@@ -484,6 +497,9 @@ export class TerminalController {
       return;
     }
     ptyPort.post({ t: 'input', id: this.id, d });
+    // PowerShell marks no command start (OSC 133;C): Enter on the prompt starts it.
+    if (!this.command && this.promptEnd && d.includes('\r')) this.startCommand();
+    else if (this.command && d.includes('\x03')) this.command.interrupted = true;
   }
 
   /** Types text as a paste (bracketed when the program asked for it). */
@@ -603,7 +619,18 @@ export class TerminalController {
           this.prompts.push({ marker, exit: null });
           if (this.prompts.length > 2000) this.prompts.shift()!.marker.dispose();
         }
-      } else if (kind === 'D' && this.prompts.length > 0) {
+      } else if (kind === 'B') {
+        this.promptEnd?.marker.dispose();
+        const marker = this.term.registerMarker(0);
+        this.promptEnd = marker ? { marker, x: this.term.buffer.active.cursorX } : null;
+        this.command = null;
+      } else if (kind === 'C') {
+        if (!this.command) this.startCommand();
+      } else if (kind === 'D') {
+        const code = parseInt(arg ?? '', 10);
+        this.commandEnded(Number.isNaN(code) ? 0 : code);
+      }
+      if (kind === 'D' && this.prompts.length > 0) {
         const last = this.prompts[this.prompts.length - 1]!;
         const code = parseInt(arg ?? '', 10);
         if (last.exit === null && !Number.isNaN(code)) {
@@ -646,7 +673,50 @@ export class TerminalController {
     else if (dir > 0) this.term.scrollToBottom();
   }
 
+  private startCommand(): void {
+    this.command = {
+      start: Date.now(),
+      interactive: this.term.buffer.active.type === 'alternate',
+      interrupted: false,
+    };
+  }
+
+  /**
+   * A command ended (OSC 133;D). One that ran long enough raises a notification, unless it was interactive (it took
+   * over the screen, or it was a Claude session: those have their own notifications and the user ended them).
+   */
+  private commandEnded(code: number): void {
+    const cmd = this.command;
+    this.command = null;
+    if (!cmd) return;
+    const elapsed = Date.now() - cmd.start;
+    const s = useApp.getState().settings;
+    if (!s.notifications || !s.notifyLongCommand || elapsed < s.notifyLongCommandSeconds * 1000) return;
+    if (cmd.interactive || cmd.interrupted || claudeSince(this.id, cmd.start)) return;
+    const duration = formatDuration(elapsed);
+    const title = code !== 0 ? t('notify.commandFailed', code, duration) : t('notify.commandOk', duration);
+    notify(this.id, 'command', title, this.commandText());
+  }
+
+  /** What the user typed after the last prompt (wrapped rows joined), at most 80 characters. */
+  private commandText(): string | undefined {
+    const p = this.promptEnd;
+    if (!p || p.marker.isDisposed || p.marker.line < 0) return undefined;
+    const b = this.term.buffer.normal;
+    let text = b.getLine(p.marker.line)?.translateToString(true, p.x) ?? '';
+    for (let i = p.marker.line + 1; i < b.length; i++) {
+      const line = b.getLine(i);
+      if (!line?.isWrapped) break;
+      text += line.translateToString(true);
+    }
+    const chars = Array.from(text.trim());
+    if (chars.length === 0) return undefined;
+    return chars.length > 80 ? chars.slice(0, 79).join('') + '…' : chars.join('');
+  }
+
   private bell(): void {
+    const name = findTerminal(this.id)?.terminal.name;
+    if (name) notify(this.id, 'bell', t('notify.bell', name));
     const mode = useApp.getState().settings.bell;
     if (mode === 'sound') void api.invoke('shell:beep');
     if (mode !== 'visual') return;

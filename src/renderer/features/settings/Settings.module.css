@@ -3,6 +3,9 @@
   inset: 0;
   z-index: 105;
   display: grid;
+  /* A definite cell (the viewport minus padding): the window's max-height resolves against it, so a long body
+     scrolls inside the window instead of the cell growing to the content and pushing the window off screen. */
+  grid-template: minmax(0, 1fr) / minmax(0, 1fr);
   place-items: center;
   padding: 24px;
   background: var(--bg-scrim);
@@ -89,6 +92,36 @@
   width: 96px;
   user-select: text;
 }
+.number:disabled {
+  border-color: var(--line);
+  background: transparent;
+  color: var(--fg-disabled);
+}
+
+/* A number with its unit inside the box: the box keeps the column's right edge, like the switches. */
+.unitBox {
+  position: relative;
+  display: inline-flex;
+}
+.numberWithUnit {
+  padding-right: 24px;
+}
+.unit {
+  position: absolute;
+  top: 50%;
+  right: 10px;
+  transform: translateY(-50%);
+  color: var(--fg-3);
+  font-size: var(--fs-caption);
+  pointer-events: none;
+}
+
+/* A setting that depends on another one that is off. */
+.rowDisabled .label,
+.rowDisabled .hint,
+.rowDisabled .unit {
+  color: var(--fg-disabled);
+}
 
 /* Switch: 40×20 track, 12px knob (RDMan). */
 .switch {
@@ -119,6 +152,10 @@
 .switchOn::after {
   background: #fff;
   transform: translateX(20px);
+}
+.switch:disabled {
+  opacity: 0.4;
+  cursor: default;
 }
 
 .segmented {

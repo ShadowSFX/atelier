@@ -33,5 +33,8 @@ export const HUB_MAX_READ_LINES = 500;
 /** A title Claude gives its terminal (atelier_set_title), in characters. */
 export const HUB_MAX_TITLE = 48;
 
+/** At most one desktop notification per terminal and event kind in this window. */
+export const NOTIFY_THROTTLE_MS = 10_000;
+
 /** Pasted clipboard images are deleted after this many days. */
 export const PASTE_IMAGE_TTL_DAYS = 7;

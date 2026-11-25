@@ -47,6 +47,15 @@ export const SettingsSchema = z.object({
   claudeHub: bool(true),
   sidebarWidth: num(272, 200, 480).transform(Math.round),
   confirmCloseRunning: bool(true),
+  /** Desktop notifications: master switch, then one switch per event. */
+  notifications: bool(true),
+  /** Claude needs an answer (permission prompt, question, plan approval). */
+  notifyWaiting: bool(true),
+  notifyClaudeDone: bool(true),
+  notifyLongCommand: bool(true),
+  /** A command must run at least this long (seconds) to notify when it ends. */
+  notifyLongCommandSeconds: num(10, 1, 3600).transform(Math.round),
+  notifyBell: bool(true),
 });
 
 export type Settings = z.infer<typeof SettingsSchema>;

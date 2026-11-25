@@ -1,6 +1,7 @@
 import { WEBGL_LRU_EXTRA, SNAPSHOT_INTERVAL_MS } from '@shared/constants';
 import { api } from '../lib/api';
 import { useApp } from '../state/app';
+import { forgetNotifications, recentNotifications } from '../state/notifications';
 import { dropRuntime } from '../state/runtime';
 import { TerminalController } from './TerminalController';
 
@@ -60,6 +61,7 @@ export function disposeTerminal(id: string, deleteSnapshot: boolean): void {
   controllers.delete(id);
   recent = recent.filter((x) => x !== id);
   dropRuntime(id);
+  forgetNotifications(id);
 }
 
 /** Puts a terminal in a pane slot. */
@@ -129,6 +131,13 @@ declare global {
       ids(): string[];
       text(id: string, lines?: number): string | null;
       gpu(id: string): boolean | null;
+      notifications(): readonly {
+        terminalId: string;
+        kind: string;
+        title: string;
+        body: string;
+        shown: boolean;
+      }[];
     };
   }
 }
@@ -136,4 +145,5 @@ window.__atelier = {
   ids: () => [...controllers.keys()],
   text: (id, lines) => controllers.get(id)?.text(lines) ?? null,
   gpu: (id) => controllers.get(id)?.hasGpu() ?? null,
+  notifications: () => recentNotifications(),
 };

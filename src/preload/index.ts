@@ -10,6 +10,7 @@ const EVENTS = new Set<keyof Events>([
   'claude:status',
   'term:read-request',
   'update:status',
+  'notify:activate',
   'terminal:set-title',
 ]);
 

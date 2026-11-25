@@ -6,9 +6,20 @@ import { Button, cx, IconButton } from '../../components/Button';
 import { saveSettings, useApp, useT } from '../../state/app';
 import s from './Settings.module.css';
 
-function Row({ label, hint, children }: { label: string; hint?: string; children: ReactNode }) {
+function Row({
+  label,
+  hint,
+  disabled = false,
+  children,
+}: {
+  label: string;
+  hint?: string;
+  /** Depends on a setting that is off: dimmed, its control disabled (the value is kept). */
+  disabled?: boolean;
+  children: ReactNode;
+}) {
   return (
-    <div className={s.row}>
+    <div className={cx(s.row, disabled && s.rowDisabled)} aria-disabled={disabled || undefined}>
       <span className={s.label}>
         <span>{label}</span>
         {hint && <span className={s.hint}>{hint}</span>}
@@ -22,10 +33,12 @@ function Switch({
   value,
   onChange,
   label,
+  disabled = false,
 }: {
   value: boolean;
   onChange: (v: boolean) => void;
   label: string;
+  disabled?: boolean;
 }) {
   return (
     <button
@@ -33,6 +46,7 @@ function Switch({
       role="switch"
       aria-checked={value}
       aria-label={label}
+      disabled={disabled}
       className={cx(s.switch, value && s.switchOn)}
       onClick={() => onChange(!value)}
     />
@@ -72,26 +86,44 @@ function NumberInput({
   max,
   step = 1,
   onChange,
+  label,
+  unit,
+  disabled = false,
 }: {
   value: number;
   min: number;
   max: number;
   step?: number;
   onChange: (v: number) => void;
+  label?: string;
+  /** Shown inside the box on the right ("s"), so the box keeps the column's right edge. */
+  unit?: string;
+  disabled?: boolean;
 }) {
-  return (
+  const input = (
     <input
       type="number"
-      className={s.number}
+      className={cx(s.number, unit && s.numberWithUnit)}
       value={value}
       min={min}
       max={max}
       step={step}
+      disabled={disabled}
+      aria-label={label}
       onChange={(e) => {
         const v = Number(e.target.value);
         if (Number.isFinite(v) && v >= min && v <= max) onChange(v);
       }}
     />
+  );
+  if (!unit) return input;
+  return (
+    <span className={s.unitBox}>
+      {input}
+      <span className={s.unit} aria-hidden="true">
+        {unit}
+      </span>
+    </span>
   );
 }
 
@@ -318,6 +350,70 @@ export function SettingsDialog() {
               label={t('settings.claudeHub')}
               value={st.claudeHub}
               onChange={(v) => set('claudeHub', v)}
+            />
+          </Row>
+
+          <div className={s.section}>{t('settings.notifications')}</div>
+          <Row label={t('settings.notify')} hint={t('settings.notifyHint')}>
+            <Switch
+              label={t('settings.notify')}
+              value={st.notifications}
+              onChange={(v) => set('notifications', v)}
+            />
+          </Row>
+          <Row
+            label={t('settings.notifyWaiting')}
+            hint={st.claudeHub ? t('settings.notifyWaitingHint') : t('settings.notifyNeedsHub')}
+            disabled={!st.notifications}
+          >
+            <Switch
+              label={t('settings.notifyWaiting')}
+              value={st.notifyWaiting}
+              disabled={!st.notifications}
+              onChange={(v) => set('notifyWaiting', v)}
+            />
+          </Row>
+          <Row
+            label={t('settings.notifyClaudeDone')}
+            hint={st.claudeHub ? undefined : t('settings.notifyNeedsHub')}
+            disabled={!st.notifications}
+          >
+            <Switch
+              label={t('settings.notifyClaudeDone')}
+              value={st.notifyClaudeDone}
+              disabled={!st.notifications}
+              onChange={(v) => set('notifyClaudeDone', v)}
+            />
+          </Row>
+          <Row label={t('settings.notifyCommand')} disabled={!st.notifications}>
+            <Switch
+              label={t('settings.notifyCommand')}
+              value={st.notifyLongCommand}
+              disabled={!st.notifications}
+              onChange={(v) => set('notifyLongCommand', v)}
+            />
+          </Row>
+          <Row
+            label={t('settings.notifyCommandSeconds')}
+            hint={t('settings.notifyCommandSecondsHint')}
+            disabled={!st.notifications || !st.notifyLongCommand}
+          >
+            <NumberInput
+              label={t('settings.notifyCommandSeconds')}
+              value={st.notifyLongCommandSeconds}
+              min={1}
+              max={3600}
+              unit={t('settings.secondsUnit')}
+              disabled={!st.notifications || !st.notifyLongCommand}
+              onChange={(v) => set('notifyLongCommandSeconds', v)}
+            />
+          </Row>
+          <Row label={t('settings.notifyBell')} disabled={!st.notifications}>
+            <Switch
+              label={t('settings.notifyBell')}
+              value={st.notifyBell}
+              disabled={!st.notifications}
+              onChange={(v) => set('notifyBell', v)}
             />
           </Row>
         </div>

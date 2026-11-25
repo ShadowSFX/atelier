@@ -14,6 +14,7 @@ import { Delivery } from './hub/Delivery';
 import { HubServer } from './hub/HubServer';
 import { handle, send, setTrustedOrigin } from './ipc';
 import { log } from './log';
+import { Notifier, registerAppId } from './notifier';
 import { ProfileRegistry, which } from './pty/profiles';
 import { PtyManager } from './pty/PtyManager';
 import { installShellScripts } from './shell/integration';
@@ -43,6 +44,10 @@ function directoryArg(argv: string[], cwd: string): string | null {
 // The data folder is set by ./dataDir (ATELIER_USER_DATA for end-to-end tests, or the portable folder).
 for (const note of dataInfo.notes) log.info(`data: ${note}`);
 if (dataInfo.fallback) log.warn(`data: the exe's folder isn't writable, using ${dataInfo.dir}`);
+// Windows shows toasts only for a registered app id. The portable exe has no Start Menu shortcut to carry one and
+// unpacks to a new folder each launch, so the id is fixed and registered for the user (registerAppId).
+const APP_ID = app.isPackaged ? 'com.shadowsfx.atelier' : 'com.shadowsfx.atelier.dev';
+if (process.platform === 'win32') app.setAppUserModelId(APP_ID);
 
 if (!app.requestSingleInstanceLock()) {
   app.quit();
@@ -65,6 +70,10 @@ async function main(): Promise<void> {
 
   await app.whenReady();
   const userData = app.getPath('userData');
+  // End-to-end runs use a throwaway profile and leave the user's registry alone.
+  if (process.platform === 'win32' && !process.env.ATELIER_USER_DATA) {
+    void registerAppId(APP_ID, app.isPackaged ? 'Atelier' : 'Atelier (dev)', userData);
+  }
 
   // ───────────── Stores ─────────────
   const settings = new JsonStore<Settings>(join(userData, 'settings.json'), parseSettings);
@@ -163,8 +172,10 @@ async function main(): Promise<void> {
     powerline: () => settings.get().powerlinePrompt,
   });
 
+  const notifier = new Notifier(() => win);
   const forget = (id: string) => {
     hub.revoke(id);
+    notifier.closeFor(id);
     delivery.terminalGone(id);
   };
   ptys.on('input', (id, data) => delivery.userInput(id, data));
@@ -244,6 +255,7 @@ async function main(): Promise<void> {
     workspace.flushPending();
     killAll();
     hub.stop();
+    notifier.closeAll();
     updater.apply(restart);
     win?.destroy();
     app.quit();
@@ -313,6 +325,7 @@ async function main(): Promise<void> {
   handle('claude:deliver-now', (id) => delivery.flush(id, true));
   handle('claude:shell-prompt', (id) => delivery.shellPrompt(id));
   handle('claude:seen', (id) => delivery.seen(id));
+  handle('notify:show', (n) => notifier.show(n));
   handle('term:read-reply', (id, text) => {
     readRequests.get(id)?.(text);
     readRequests.delete(id);

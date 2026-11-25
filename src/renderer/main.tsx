@@ -6,12 +6,14 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './App';
 import { loadApp } from './state/app';
+import { initNotifications } from './state/notifications';
 import { initRuntimeEvents } from './state/runtime';
 import { loadWorkspace } from './state/workspace';
 import { startSnapshotTimer } from './terminal/registry';
 
 async function boot(): Promise<void> {
   initRuntimeEvents();
+  initNotifications();
   await loadApp();
   createRoot(document.getElementById('root')!).render(
     <StrictMode>

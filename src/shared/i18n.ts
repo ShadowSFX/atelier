@@ -212,7 +212,42 @@ export const STRINGS = {
     'Al ejecutar claude en una terminal de Atelier, la sesión puede ver y escribir solo a las demás sesiones de su proyecto (herramientas atelier_*). Las herramientas globales de Claude Code se desactivan dentro de Atelier. Se aplica a las terminales nuevas.',
     "When you run claude in an Atelier terminal, the session can see and message only the other sessions of its project (atelier_* tools). Claude Code's machine-wide messaging tools are turned off inside Atelier. Applies to new terminals.",
   ],
+  'settings.notifications': ['Notificaciones', 'Notifications'],
+  'settings.notify': ['Notificaciones de escritorio', 'Desktop notifications'],
+  'settings.notifyHint': [
+    'Avisos del sistema, aunque Atelier esté en segundo plano. Haz clic en uno para abrir su terminal.',
+    'System notifications, even when Atelier is in the background. Click one to open its terminal.',
+  ],
+  'settings.notifyWaiting': ['Claude necesita tu respuesta', 'Claude needs your answer'],
+  'settings.notifyWaitingHint': [
+    'Permisos, preguntas y aprobación de planes',
+    'Permission prompts, questions and plan approvals',
+  ],
+  'settings.notifyClaudeDone': ['Claude terminó de responder', 'Claude finished a response'],
+  'settings.notifyNeedsHub': [
+    'Requiere la comunicación entre sesiones (Claude Code)',
+    'Needs messaging between sessions (Claude Code)',
+  ],
+  'settings.notifyCommand': ['Comando largo terminado', 'Long command finished'],
+  'settings.notifyCommandSeconds': ['Duración mínima', 'Minimum duration'],
+  'settings.notifyCommandSecondsHint': [
+    'Solo comandos que duren al menos estos segundos',
+    'Only commands that run at least this many seconds',
+  ],
+  'settings.notifyBell': ['Campana de la terminal', 'Terminal bell'],
+  'settings.secondsUnit': ['s', 's'],
   'settings.done': ['Listo', 'Done'],
+
+  // Desktop notifications
+  'notify.waiting': ['Claude necesita tu respuesta', 'Claude needs your answer'],
+  'notify.claudeDone': ['Claude terminó', 'Claude finished'],
+  'notify.commandOk': ['Comando terminado tras {0}', 'Command finished after {0}'],
+  'notify.commandFailed': [
+    'El comando falló con código {0} tras {1}',
+    'Command failed with exit code {0} after {1}',
+  ],
+  'notify.bell': ['Campana en {0}', 'Bell in {0}'],
+  'notify.where': ['{0} en {1}', '{0} in {1}'],
 
   // Generic
   'common.cancel': ['Cancelar', 'Cancel'],

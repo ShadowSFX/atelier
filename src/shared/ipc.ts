@@ -1,3 +1,4 @@
+import type { NotifyKind } from './notify';
 import type { Settings, SettingsPatch } from './settings';
 import type { Profile, ShellKind } from './shell';
 import type { Workspace } from './workspace';
@@ -73,6 +74,13 @@ export interface UpdateStatus {
   url?: string;
 }
 
+export interface NotifyRequest {
+  terminalId: string;
+  kind: NotifyKind;
+  title: string;
+  body: string;
+}
+
 export interface Invoke {
   'app:info': () => {
     version: string;
@@ -116,6 +124,8 @@ export interface Invoke {
   /** The user looked at a terminal whose Claude session finished (done → idle). */
   'claude:seen': (terminalId: string) => void;
   'term:read-reply': (reqId: number, text: string | null) => void;
+  /** Shows a desktop notification; false when the system can't show one. */
+  'notify:show': (n: NotifyRequest) => boolean;
   /** The renderer got 'app:closing' and is handling it (it may ask the user before quitting). */
   'app:closing-ack': () => void;
   /**
@@ -134,6 +144,8 @@ export interface Events {
   /** The hub needs the text of a terminal (atelier_read_output). Reply with 'term:read-reply'. */
   'term:read-request': (reqId: number, terminalId: string, lines: number) => void;
   'update:status': (s: UpdateStatus) => void;
+  /** The user clicked a desktop notification of this terminal. */
+  'notify:activate': (terminalId: string) => void;
   /** The Claude session of a terminal named it (atelier_set_title). Ignored when the user named it by hand. */
   'terminal:set-title': (terminalId: string, title: string) => void;
 }
