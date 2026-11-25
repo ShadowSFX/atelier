@@ -88,8 +88,12 @@
   border-radius: 50%;
   background: var(--warn);
 }
-.dotAttention {
-  background: var(--accent);
+/* Claude's state takes the folder icon's place: same 16px square, so the tab doesn't shift. */
+.claudeGlyph {
+  --box: 16px;
+  --glyph: 11px;
+  --stroke: 2px;
+  --check: 14px;
 }
 .close {
   opacity: 0;

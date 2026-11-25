@@ -1,0 +1,79 @@
+/*
+ * Same shapes and colors as the sidebar row's Claude status (features/sidebar/Sidebar.module.css).
+ * Callers size it with --glyph (ring/dot, 8px), --stroke (ring width, 1.5px), --check (check mark, 10px) and --box
+ * (the square they sit centered in, auto). Defaults are var() fallbacks, so a caller's class wins whatever order
+ * the stylesheets load in.
+ */
+.box {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: var(--box, auto);
+  height: var(--box, auto);
+}
+.glyph {
+  position: relative;
+  width: var(--glyph, 8px);
+  height: var(--glyph, 8px);
+  border-radius: 50%;
+}
+
+/* Idle: a hollow ring, still. */
+.idle .glyph {
+  border: var(--stroke, 1.5px) solid var(--fg-3);
+}
+
+/* Processing: an arc turning. */
+.busy .glyph {
+  border: var(--stroke, 1.5px) solid color-mix(in srgb, var(--accent) 28%, transparent);
+  border-top-color: var(--accent);
+  animation: spin 0.9s linear infinite;
+}
+
+/* Waiting for an answer: a dot with a halo going out. */
+.waiting .glyph {
+  background: var(--warn);
+}
+.waiting .glyph::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: var(--warn);
+  animation: halo 1.6s ease-out infinite;
+}
+
+/* Finished: a check mark drawn once. */
+.check {
+  width: var(--check, 10px);
+  height: var(--check, 10px);
+  fill: none;
+  stroke: var(--online);
+  stroke-width: 1.9;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 10;
+  stroke-dashoffset: 0;
+  animation: draw 0.45s ease-out;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes halo {
+  from {
+    transform: scale(1);
+    opacity: 0.55;
+  }
+  to {
+    transform: scale(2.6);
+    opacity: 0;
+  }
+}
+@keyframes draw {
+  from {
+    stroke-dashoffset: 10;
+  }
+}

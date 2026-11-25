@@ -87,3 +87,42 @@ test('Claude status and title on the sidebar row', async () => {
 
   await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]!.destroy());
 });
+
+test("Claude's state on the project tab, active or in the background", async () => {
+  const other = join(base, 'other-proj');
+  mkdirSync(other, { recursive: true });
+  const app = await electron.launch({
+    args: [root],
+    cwd: root,
+    env: { ...process.env, ATELIER_USER_DATA: join(base, 'profile-tabs') },
+  });
+  const page = await app.firstWindow();
+  await page.waitForSelector('header');
+  await emit(app, 'app:open-project', project);
+  await expect.poll(() => page.evaluate(() => window.__atelier!.ids().length)).toBeGreaterThan(0);
+  const id = (await page.evaluate(() => window.__atelier!.ids()))[0]!;
+  const tab = page.getByRole('tab', { name: 'status-proj' });
+
+  // An open terminal without Claude working: the plain folder tab.
+  await expect(tab).not.toHaveAttribute('data-claude-state');
+
+  for (const state of ['busy', 'waiting', 'done'] as const) {
+    await emit(app, 'claude:status', { terminalId: id, state, queued: 0 } satisfies ClaudeStatus);
+    await expect(tab).toHaveAttribute('data-claude-state', state);
+    await expect(tab.locator(`[data-claude-glyph="${state}"]`)).toHaveCount(1);
+  }
+  await expect(tab).toHaveAttribute('title', /Claude Code: (Terminado|Finished)/);
+
+  // Still shown while another project is in front.
+  await emit(app, 'app:open-project', other);
+  await expect(page.getByRole('tab', { name: 'other-proj' })).toHaveAttribute('aria-selected', 'true');
+  await emit(app, 'claude:status', { terminalId: id, state: 'busy', queued: 0 } satisfies ClaudeStatus);
+  await expect(tab).toHaveAttribute('data-claude-state', 'busy');
+
+  // Idle (or the session ended): back to the folder.
+  await emit(app, 'claude:status', { terminalId: id, state: 'idle', queued: 0 } satisfies ClaudeStatus);
+  await expect(tab).not.toHaveAttribute('data-claude-state');
+  await expect(tab.locator('[data-claude-glyph]')).toHaveCount(0);
+
+  await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]!.destroy());
+});

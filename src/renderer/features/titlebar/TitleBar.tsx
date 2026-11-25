@@ -8,8 +8,10 @@ import {
   Settings16Regular,
 } from '@fluentui/react-icons';
 import { useState } from 'react';
+import { projectClaudeState, type ProjectClaudeState } from '@shared/claude';
 import type { Project } from '@shared/workspace';
 import { cx, IconButton } from '../../components/Button';
+import { CLAUDE_LABEL, ClaudeGlyph } from '../../components/ClaudeGlyph';
 import { Logo } from '../../components/Logo';
 import { ColorSwatches } from '../../components/Overlays';
 import { api } from '../../lib/api';
@@ -58,13 +60,14 @@ function projectMenu(p: Project, x: number, y: number): void {
   ]);
 }
 
-/** Whether any terminal of a background project needs a look (output, or Claude waiting for permission). */
-function useAttention(p: Project, active: boolean): 'activity' | 'claude' | null {
-  return useRuntime((st) => {
-    if (active) return null;
-    if (p.terminals.some((x) => st.claude[x.id]?.state === 'waiting')) return 'claude';
-    return p.terminals.some((x) => st.terminals[x.id]?.activity) ? 'activity' : null;
-  });
+/** Whether a background project printed output since it was last shown (Claude's state has its own glyph). */
+function useActivity(p: Project, active: boolean): boolean {
+  return useRuntime((st) => !active && p.terminals.some((x) => st.terminals[x.id]?.activity));
+}
+
+/** The most urgent state among the project's Claude sessions (waiting > busy > done), on every tab. */
+function useClaudeState(p: Project): ProjectClaudeState | null {
+  return useRuntime((st) => projectClaudeState(p.terminals.map((x) => st.claude[x.id]?.state)));
 }
 
 function ProjectTab({
@@ -81,13 +84,15 @@ function ProjectTab({
   onDropIndex: (i: number | null) => void;
 }) {
   const tr = useT();
-  const attention = useAttention(p, active);
+  const activity = useActivity(p, active);
+  const claude = useClaudeState(p);
   return (
     <div
       role="tab"
       aria-selected={active}
       tabIndex={0}
-      title={p.path}
+      title={claude ? `${p.path}\n${tr('claude.tip', tr(CLAUDE_LABEL[claude]))}` : p.path}
+      data-claude-state={claude ?? undefined}
       className={cx(s.tab, active && s.active, dropBefore && s.dropBefore)}
       draggable
       onDragStart={(e) => {
@@ -110,8 +115,9 @@ function ProjectTab({
     >
       {p.color && <span className={s.stripe} style={{ background: p.color }} />}
       <span className={s.tabIcon}>
-        <Folder16Regular />
-        {attention && <span className={cx(s.dot, attention === 'claude' && s.dotAttention)} />}
+        {claude ? <ClaudeGlyph state={claude} className={s.claudeGlyph} /> : <Folder16Regular />}
+        {/* A working session always prints: the output dot would only blur Claude's glyph (and look like waiting). */}
+        {activity && !claude && <span className={s.dot} />}
       </span>
       <span className={s.name}>{p.name}</span>
       <IconButton
