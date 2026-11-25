@@ -119,6 +119,17 @@ async function main(): Promise<void> {
         });
         send(win, 'term:read-request', id, terminalId, lines);
       }),
+    setTitle: (terminalId, title) => {
+      // Main's copy of the workspace can lag the renderer's by a save; the renderer checks the lock again.
+      const term = workspace
+        .get()
+        .projects.flatMap((p) => p.terminals)
+        .find((t) => t.id === terminalId);
+      if (!term || !win) return 'This terminal is no longer open.';
+      if (term.nameLocked) return 'The user named this terminal by hand, so its title was kept.';
+      send(win, 'terminal:set-title', terminalId, title);
+      return `Title set: "${title}"`;
+    },
   });
   let hubReady = false;
   try {
@@ -292,6 +303,7 @@ async function main(): Promise<void> {
   handle('window:set-visible-stats', (path, ids) => stats.watch(path, ids));
   handle('claude:deliver-now', (id) => delivery.flush(id, true));
   handle('claude:shell-prompt', (id) => delivery.shellPrompt(id));
+  handle('claude:seen', (id) => delivery.seen(id));
   handle('term:read-reply', (id, text) => {
     readRequests.get(id)?.(text);
     readRequests.delete(id);

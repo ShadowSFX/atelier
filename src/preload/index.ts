@@ -10,6 +10,7 @@ const EVENTS = new Set<keyof Events>([
   'claude:status',
   'term:read-request',
   'update:status',
+  'terminal:set-title',
 ]);
 
 const api: AtelierApi = {

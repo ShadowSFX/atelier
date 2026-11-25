@@ -2,7 +2,8 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { blend, normalizeColor } from '@shared/colors';
-import { splitLines } from '@shared/hub';
+import { HUB_MAX_TITLE } from '@shared/constants';
+import { cleanTitle, splitLines } from '@shared/hub';
 import { resolveLang, STRINGS, translate } from '@shared/i18n';
 import { SCHEMES, resolveScheme } from '@shared/schemes';
 import { parseSettings } from '@shared/settings';
@@ -23,6 +24,28 @@ describe('i18n', () => {
     expect(resolveLang('system', 'es-MX')).toBe('es');
     expect(resolveLang('system', 'en-US')).toBe('en');
     expect(resolveLang('en', 'es-ES')).toBe('en');
+  });
+});
+
+describe('terminal titles from Claude', () => {
+  it('removes control characters and collapses whitespace', () => {
+    expect(cleanTitle('  Login\tform\r\n\x1b]0;evil\x07 fix  ')).toBe('Login form ]0;evil fix');
+    expect(cleanTitle('a\x9bb')).toBe('a b');
+  });
+
+  it('is empty for nothing usable', () => {
+    expect(cleanTitle('')).toBe('');
+    expect(cleanTitle(' \x00\x1b ')).toBe('');
+    expect(cleanTitle(undefined)).toBe('');
+    expect(cleanTitle(42)).toBe('');
+  });
+
+  it(`cuts at ${HUB_MAX_TITLE} characters without splitting an emoji`, () => {
+    expect(Array.from(cleanTitle('x'.repeat(100)))).toHaveLength(HUB_MAX_TITLE);
+    const emoji = cleanTitle('🚀'.repeat(60));
+    expect(Array.from(emoji)).toHaveLength(HUB_MAX_TITLE);
+    expect(emoji).toBe('🚀'.repeat(HUB_MAX_TITLE));
+    expect(cleanTitle('a'.repeat(HUB_MAX_TITLE - 1) + ' tail')).toBe('a'.repeat(HUB_MAX_TITLE - 1));
   });
 });
 

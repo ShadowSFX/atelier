@@ -17,7 +17,12 @@ const delivery = new Delivery({
   onStatus: () => undefined,
   now: () => Date.now(),
 });
-const hub = new HubServer({ delivery, readOutput: async (id, lines) => `${id}:${lines}` });
+const titles: { id: string; title: string }[] = [];
+const hub = new HubServer({
+  delivery,
+  readOutput: async (id, lines) => `${id}:${lines}`,
+  setTitle: (id, title) => (titles.push({ id, title }), 'ok'),
+});
 const tokens: Record<string, string> = {};
 
 beforeAll(async () => {
@@ -60,6 +65,25 @@ describe('HubServer (real pipe)', () => {
     const r = await client('a1').request<SendReport[]>('send', { to: 'a2', message: 'run the tests' });
     expect(r[0]!.status).toBe('delivered');
     expect(written.some((w) => w.id === 'a2' && w.data.includes('run the tests'))).toBe(true);
+  });
+
+  it('names only the caller’s own terminal, with a clean title', async () => {
+    // A `terminal` field from the client is ignored: the token decides which terminal is renamed.
+    expect(await client('a2').request('set_title', { title: '  Fix\x1b[31m\n login ', terminal: 'a1' })).toBe(
+      'ok',
+    );
+    expect(titles.at(-1)).toEqual({ id: 'a2', title: 'Fix [31m login' });
+    await expect(client('a2').request('set_title', { title: '\x07\r\n ' })).rejects.toThrow(/empty/);
+    await expect(client('a2').request('set_title', {})).rejects.toThrow(/empty/);
+    expect(titles).toHaveLength(1);
+  });
+
+  it('passes the tool name of PreToolUse hooks on', async () => {
+    await sendOnce(
+      { path: hub.path, token: tokens.a2! },
+      { t: 'hook', event: 'PreToolUse', tool: 'AskUserQuestion', at: Date.now() },
+    );
+    await expect.poll(() => delivery.claudeState('a2')).toBe('waiting');
   });
 
   it('refuses unknown and revoked tokens', async () => {

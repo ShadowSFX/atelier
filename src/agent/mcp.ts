@@ -6,7 +6,7 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { z } from 'zod';
-import { HUB_MAX_MESSAGE, HUB_MAX_READ_LINES } from '@shared/constants';
+import { HUB_MAX_MESSAGE, HUB_MAX_READ_LINES, HUB_MAX_TITLE } from '@shared/constants';
 import type { InboxMessage, PeerInfo, SendReport } from '@shared/hub';
 import { HubClient, hubEnv } from './hubClient';
 
@@ -33,7 +33,8 @@ const server = new McpServer(
       'Atelier groups terminals by project. These tools reach only the other terminals of your project: ' +
       'list them with atelier_peers, message another Claude session with atelier_send (it arrives as a prompt ' +
       'in that session), read messages with atelier_inbox, and read what another terminal shows (a dev server, ' +
-      'a test run) with atelier_read_output.',
+      'a test run) with atelier_read_output. Name your own terminal with atelier_set_title whenever you start a ' +
+      'plan or a new piece of work.',
   },
 );
 
@@ -43,7 +44,8 @@ server.registerTool(
     title: 'List project terminals',
     description:
       'Lists the terminals of this Atelier project (id, name, working directory) and whether a Claude session runs ' +
-      'in each (idle, busy, or waiting for permission). Your own terminal is marked self.',
+      'in each (idle, busy, waiting for an answer from the user, or done with a turn the user has not seen yet). ' +
+      'Your own terminal is marked self.',
     annotations: { readOnlyHint: true },
   },
   () =>
@@ -116,6 +118,29 @@ server.registerTool(
     annotations: { readOnlyHint: true },
   },
   ({ terminal, lines }) => call<string>('read_output', { terminal, lines }, (t) => t || '(empty)'),
+);
+
+server.registerTool(
+  'atelier_set_title',
+  {
+    title: 'Name this terminal',
+    description:
+      "Sets the name of your own terminal in Atelier's sidebar, so the user can tell their terminals apart. Call " +
+      'it whenever you start a plan or a new piece of work (not for follow-ups on the current one), with 2-5 ' +
+      'words describing it, in the language the user writes in. A name the user gave by hand is kept.',
+    inputSchema: {
+      // A longer title is cut to HUB_MAX_TITLE by the hub rather than refused.
+      title: z
+        .string()
+        .min(1)
+        .max(500)
+        .describe(
+          `Short title, e.g. "Login form validation" (at most ${HUB_MAX_TITLE} characters are shown)`,
+        ),
+    },
+    annotations: { idempotentHint: true },
+  },
+  ({ title }) => call<string>('set_title', { title }, (r) => r),
 );
 
 server.connect(new StdioServerTransport()).catch((err: unknown) => {

@@ -14,6 +14,11 @@ export interface DeliveryDeps {
 
 interface TerminalState {
   claude: ClaudeState | null;
+  /**
+   * What a `waiting` session waits for. A permission prompt is answered with one key (Enter/Esc); a tool that asks
+   * the user (questions, plan approval) can take several keys and ends with its PostToolUse hook.
+   */
+  waitFor: 'permission' | 'tool' | null;
   /** The user typed into this terminal since Claude last became idle: injecting now would mix with their text. */
   typed: boolean;
   /** Start time of the last hook applied (async hooks may arrive late). */
@@ -33,6 +38,13 @@ const CONTROL = /[\x00-\x08\x0b-\x1f\x7f-\x9f]/g;
 /* eslint-enable no-control-regex */
 /** Claude Code reads a bracketed paste, then Enter submits it. A short gap keeps them separate events. */
 const SUBMIT_DELAY_MS = 40;
+/** Tools that stop and wait for the user's answer (their PostToolUse comes once it is given). */
+const ASKING_TOOLS = new Set(['AskUserQuestion', 'ExitPlanMode']);
+/** Notifications that mean Claude needs an answer from the user. */
+const ASKING_NOTIFICATIONS = new Set(['permission_prompt', 'elicitation_dialog']);
+
+/** The session waits for a prompt: a message can be typed into it. */
+const ready = (s: TerminalState) => s.claude === 'idle' || s.claude === 'done';
 
 /**
  * Routes messages between Claude sessions of the same project and tracks each session's state from its hooks.
@@ -50,7 +62,7 @@ export class Delivery {
   private state(id: string): TerminalState {
     let s = this.states.get(id);
     if (!s) {
-      s = { claude: null, typed: false, lastHookAt: 0, queue: [], inbox: [] };
+      s = { claude: null, waitFor: null, typed: false, lastHookAt: 0, queue: [], inbox: [] };
       this.states.set(id, s);
     }
     return s;
@@ -65,34 +77,50 @@ export class Delivery {
     this.deps.onStatus({ terminalId: id, state: s.claude, queued: s.queue.length });
   }
 
-  hook(terminalId: string, event: HookEvent, notificationType?: string, at = this.deps.now()): void {
+  hook(
+    terminalId: string,
+    event: HookEvent,
+    notificationType?: string,
+    at = this.deps.now(),
+    tool?: string,
+  ): void {
     const s = this.state(terminalId);
     if (at < s.lastHookAt) return;
     s.lastHookAt = at;
+    const set = (state: ClaudeState | null, waitFor: TerminalState['waitFor'] = null) => {
+      s.claude = state;
+      s.waitFor = waitFor;
+    };
     switch (event) {
       case 'SessionStart':
-        s.claude = 'idle';
+        set('idle');
         s.typed = false;
         break;
       case 'Stop':
         // A draft typed while Claude worked is still in the input box: `typed` stays as it is.
-        s.claude = 'idle';
+        set('done');
         break;
       case 'UserPromptSubmit':
-      case 'PreToolUse':
       case 'PostToolUse':
-        s.claude = 'busy';
+        set('busy');
+        break;
+      case 'PreToolUse':
+        if (tool && ASKING_TOOLS.has(tool)) set('waiting', 'tool');
+        else set('busy');
         break;
       case 'Notification':
-        if (notificationType === 'permission_prompt') s.claude = 'permission';
-        else if (notificationType === 'idle_prompt' && s.claude !== 'busy') s.claude = 'idle';
+        // A question already open stays one (its own notification must not make Enter end the wait early).
+        if (notificationType && ASKING_NOTIFICATIONS.has(notificationType))
+          set('waiting', s.claude === 'waiting' && s.waitFor === 'tool' ? 'tool' : 'permission');
+        // Claude waits for a prompt: a turn interrupted with Esc never sends Stop, so `busy` would stay forever.
+        else if (notificationType === 'idle_prompt' && s.claude === 'busy') set('idle');
         break;
       case 'SessionEnd':
-        s.claude = null;
+        set(null);
         s.typed = false;
         break;
     }
-    if (s.claude === 'idle') this.flush(terminalId);
+    if (ready(s)) this.flush(terminalId);
     this.publish(terminalId);
   }
 
@@ -100,16 +128,31 @@ export class Delivery {
   userInput(terminalId: string, data: string): void {
     const s = this.states.get(terminalId);
     if (!s?.claude || REPORT.test(data)) return;
+    // Typing in a session whose finished turn was not looked at yet: the user is back.
+    if (s.claude === 'done') {
+      s.claude = 'idle';
+      this.publish(terminalId);
+    }
     if (CLEARS_LINE.test(data)) {
       s.typed = false;
-      // Answering a permission prompt (Enter, Esc) lets Claude go on.
-      if (s.claude === 'permission') {
+      // Answering a permission prompt (Enter, Esc) lets Claude go on. A question or a plan approval may take
+      // several keys: its PostToolUse hook says when it is answered.
+      if (s.claude === 'waiting' && s.waitFor === 'permission') {
         s.claude = 'busy';
+        s.waitFor = null;
         this.publish(terminalId);
       }
       return;
     }
     s.typed = true;
+  }
+
+  /** The user looked at the terminal (focused it): a finished turn is no longer news. */
+  seen(terminalId: string): void {
+    const s = this.states.get(terminalId);
+    if (s?.claude !== 'done') return;
+    s.claude = 'idle';
+    this.publish(terminalId);
   }
 
   /**
@@ -182,7 +225,7 @@ export class Delivery {
     target.inbox.push(msg);
     if (target.inbox.length > MAX_INBOX) target.inbox.splice(0, target.inbox.length - MAX_INBOX);
 
-    if (target.claude === 'idle' && !target.typed && target.queue.length === 0 && this.inject(to, msg)) {
+    if (ready(target) && !target.typed && target.queue.length === 0 && this.inject(to, msg)) {
       return { to, name: toName, status: 'delivered' };
     }
     if (target.queue.length >= HUB_MAX_QUEUE) {
@@ -208,12 +251,12 @@ export class Delivery {
 
   /**
    * Delivers queued messages, oldest first, merged into one prompt. `force` (the user clicked the badge) ignores a
-   * busy session or a draft, but never a permission prompt: the text and Enter would answer it.
+   * busy session or a draft, but never a session waiting for an answer: the text and Enter would answer it.
    */
   flush(terminalId: string, force = false): void {
     const s = this.states.get(terminalId);
-    if (!s || s.queue.length === 0 || !s.claude || s.claude === 'permission') return;
-    if (!force && (s.claude !== 'idle' || s.typed)) return;
+    if (!s || s.queue.length === 0 || !s.claude || s.claude === 'waiting') return;
+    if (!force && (!ready(s) || s.typed)) return;
     const batch = s.queue.splice(0);
     const merged: InboxMessage = { ...batch[0]!, text: batch.map((m) => format(m)).join('\n\n') };
     if (!this.inject(terminalId, merged, true)) s.queue.unshift(...batch);
@@ -241,6 +284,7 @@ export class Delivery {
     if (!ok) return false;
     const s = this.state(terminalId);
     s.claude = 'busy'; // the prompt is being submitted; UserPromptSubmit confirms it
+    s.waitFor = null;
     setTimeout(() => this.deps.write(terminalId, '\r'), SUBMIT_DELAY_MS);
     return true;
   }

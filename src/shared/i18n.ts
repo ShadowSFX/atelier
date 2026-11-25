@@ -30,6 +30,7 @@ export const STRINGS = {
   'terminals.new': ['Nueva terminal', 'New terminal'],
   'terminals.newWith': ['Nueva terminal con…', 'New terminal with…'],
   'terminals.rename': ['Cambiar nombre', 'Rename'],
+  'terminals.unlockName': ['Dejar que Claude le ponga nombre', 'Let Claude rename'],
   'terminals.color': ['Color', 'Color'],
   'terminals.noColor': ['Sin color', 'No color'],
   'terminals.customColor': ['Otro color…', 'Custom color…'],
@@ -99,9 +100,11 @@ export const STRINGS = {
   'search.close': ['Cerrar (Esc)', 'Close (Esc)'],
 
   // Claude
-  'claude.idle': ['Claude: libre', 'Claude: idle'],
-  'claude.busy': ['Claude: trabajando', 'Claude: working'],
-  'claude.permission': ['Claude: espera tu permiso', 'Claude: waiting for permission'],
+  'claude.idle': ['Inactivo', 'Idle'],
+  'claude.busy': ['Procesando', 'Processing'],
+  'claude.waiting': ['Esperando respuesta', 'Waiting for answers'],
+  'claude.done': ['Terminado', 'Finished'],
+  'claude.tip': ['Claude Code: {0}', 'Claude Code: {0}'],
   'claude.queued': [
     '{0} mensajes en cola — clic para entregar ahora',
     '{0} queued messages — click to deliver now',

@@ -4,7 +4,14 @@ import { createServer, type Server, type Socket } from 'node:net';
 import { tmpdir, userInfo } from 'node:os';
 import { join } from 'node:path';
 import { HUB_MAX_READ_LINES } from '@shared/constants';
-import { HUB_MAX_LINE, splitLines, type ClientMessage, type HubRequest, type HubResponse } from '@shared/hub';
+import {
+  cleanTitle,
+  HUB_MAX_LINE,
+  splitLines,
+  type ClientMessage,
+  type HubRequest,
+  type HubResponse,
+} from '@shared/hub';
 import { log } from '../log';
 import type { Delivery } from './Delivery';
 
@@ -17,6 +24,8 @@ export interface HubDeps {
   delivery: Delivery;
   /** Text of a terminal's screen and scrollback (asked to the renderer, which owns xterm). */
   readOutput(terminalId: string, lines: number): Promise<string | null>;
+  /** Names the terminal in the sidebar (atelier_set_title); returns what to tell Claude. */
+  setTitle(terminalId: string, title: string): string;
 }
 
 function pipePath(): string {
@@ -106,6 +115,7 @@ export class HubServer {
             msg.event,
             msg.notificationType,
             Number(msg.at) || Date.now(),
+            typeof msg.tool === 'string' ? msg.tool : undefined,
           );
           return;
         }
@@ -144,6 +154,12 @@ export class HubServer {
         const text = await this.deps.readOutput(req.terminal, lines);
         if (text === null) throw new Error('the terminal is not available');
         return text;
+      }
+      case 'set_title': {
+        // Always the caller's own terminal: the token says which one.
+        const title = cleanTitle(req.title);
+        if (!title) throw new Error('the title is empty');
+        return this.deps.setTitle(who.terminalId, title);
       }
       default:
         log.warn('hub: unknown op', req);

@@ -125,11 +125,8 @@
 .metaItem > svg {
   flex: none;
 }
-.cwd {
+.branch {
   flex: 0 1 auto;
-}
-.proc {
-  color: var(--fg-2);
 }
 
 .side {
@@ -163,29 +160,104 @@
   color: var(--danger);
 }
 
+/* ───── Claude status (second line) ───── */
+/* --tone is the state's color; labels mix it with the text color so they stay readable in both themes. */
 .claude {
+  --tone: var(--fg-3);
+  flex: none;
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  height: 18px;
-  padding: 0 6px 0 5px;
+  gap: 5px;
+  height: 16px;
+  padding: 0;
   border: 0;
-  border-radius: 9px;
-  background: var(--bg-hover);
-  color: var(--fg-2);
-  font: 600 11px / 1 var(--font-small);
+  background: none;
+  color: var(--tone);
+  font: 600 var(--fs-caption) / 16px var(--font-small);
+  white-space: nowrap;
+  cursor: default;
 }
-.claudebusy {
-  background: var(--accent-subtle);
-  color: var(--accent-text);
+.claudeQueued {
+  cursor: pointer;
 }
-.claudebusy > svg {
-  animation: pulse 1.4s ease-in-out infinite;
+.claudeQueued:hover .claudeLabel {
+  text-decoration: underline;
 }
-.claudepermission {
-  background: color-mix(in srgb, var(--warn) 18%, transparent);
-  color: var(--warn);
+.glyph {
+  position: relative;
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
 }
+
+/* Idle: a hollow ring, still. */
+.idle {
+  font-weight: 500;
+}
+.idle .glyph {
+  border: 1.5px solid var(--fg-3);
+}
+
+/* Processing: an arc turning, and a light passing over the label. */
+.busy {
+  --tone: color-mix(in srgb, var(--accent-text) 80%, var(--fg-1));
+}
+.busy .glyph {
+  border: 1.5px solid color-mix(in srgb, var(--accent) 28%, transparent);
+  border-top-color: var(--accent);
+  animation: spin 0.9s linear infinite;
+}
+.busy .claudeLabel {
+  background: linear-gradient(
+      90deg,
+      var(--tone) 0%,
+      var(--tone) 40%,
+      var(--fg-1) 50%,
+      var(--tone) 60%,
+      var(--tone) 100%
+    )
+    100% 0 / 250% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: shimmer 2.4s linear infinite;
+}
+
+/* Waiting for answers: a dot with a halo going out, the one state that keeps asking for attention. */
+.waiting {
+  --tone: color-mix(in srgb, var(--warn) 78%, var(--fg-1));
+}
+.waiting .glyph {
+  background: var(--warn);
+}
+.waiting .glyph::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: var(--warn);
+  animation: halo 1.6s ease-out infinite;
+}
+
+/* Finished: a check mark drawn once. */
+.done {
+  --tone: color-mix(in srgb, var(--online) 72%, var(--fg-1));
+}
+.check {
+  flex: none;
+  width: 10px;
+  height: 10px;
+  fill: none;
+  stroke: var(--online);
+  stroke-width: 1.9;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 10;
+  stroke-dashoffset: 0;
+  animation: draw 0.45s ease-out;
+}
+
 .queued {
   min-width: 14px;
   padding: 0 4px;
@@ -196,9 +268,32 @@
   line-height: 14px;
   text-align: center;
 }
-@keyframes pulse {
-  50% {
-    opacity: 0.35;
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes shimmer {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: 0% 0;
+  }
+}
+@keyframes halo {
+  from {
+    transform: scale(1);
+    opacity: 0.55;
+  }
+  to {
+    transform: scale(2.6);
+    opacity: 0;
+  }
+}
+@keyframes draw {
+  from {
+    stroke-dashoffset: 10;
   }
 }
 

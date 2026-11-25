@@ -79,7 +79,7 @@ describe('Delivery', () => {
   it('delivers by hand even when busy, but never into a permission prompt', () => {
     const { d, writes } = setup();
     d.hook('a2', 'Notification', 'permission_prompt');
-    expect(d.claudeState('a2')).toBe('permission');
+    expect(d.claudeState('a2')).toBe('waiting');
     d.send('A', 'a1', 'a2', 'msg');
     d.flush('a2', true);
     expect(writes).toHaveLength(0); // Enter would answer the prompt
@@ -142,7 +142,7 @@ describe('Delivery', () => {
     const t0 = at();
     d.hook('a2', 'Stop', undefined, t0 + 10);
     d.hook('a2', 'PreToolUse', undefined, t0 + 5); // an async hook that started before Stop
-    expect(d.claudeState('a2')).toBe('idle');
+    expect(d.claudeState('a2')).toBe('done');
   });
 
   it('inbox returns new messages once and removes them from the queue', () => {
@@ -172,5 +172,98 @@ describe('Delivery', () => {
     // eslint-disable-next-line no-control-regex
     expect(body).not.toMatch(/[\x00-\x08\x0b-\x1f\x7f-\x9f]/);
     expect(body).toContain('line 2');
+  });
+
+  describe('status for the sidebar', () => {
+    it('finishes a turn as done, which becomes idle once the user types or looks', () => {
+      const { d, statuses } = setup();
+      d.hook('a2', 'UserPromptSubmit');
+      d.hook('a2', 'Stop');
+      expect(d.claudeState('a2')).toBe('done');
+      expect(statuses.at(-1)).toEqual({ terminalId: 'a2', state: 'done', queued: 0 });
+      d.userInput('a2', '\x1b[I'); // a focus report is not the user typing
+      expect(d.claudeState('a2')).toBe('done');
+      d.userInput('a2', 'n');
+      expect(d.claudeState('a2')).toBe('idle');
+      expect(statuses.at(-1)!.state).toBe('idle');
+
+      d.hook('a2', 'UserPromptSubmit');
+      d.hook('a2', 'Stop');
+      d.seen('a2');
+      expect(d.claudeState('a2')).toBe('idle');
+    });
+
+    it('seen only changes a finished turn', () => {
+      const { d, statuses } = setup();
+      d.seen('a2'); // no session
+      expect(d.claudeState('a2')).toBeNull();
+      d.hook('a2', 'UserPromptSubmit');
+      const before = statuses.length;
+      d.seen('a2');
+      expect(d.claudeState('a2')).toBe('busy');
+      expect(statuses).toHaveLength(before);
+    });
+
+    it('waits for the answer to a question or a plan until PostToolUse, whatever keys are pressed', () => {
+      const { d } = setup();
+      d.hook('a2', 'UserPromptSubmit');
+      d.hook('a2', 'PreToolUse', undefined, undefined, 'AskUserQuestion');
+      expect(d.claudeState('a2')).toBe('waiting');
+      d.userInput('a2', '\r'); // first of several questions
+      d.userInput('a2', '\x1b[B');
+      expect(d.claudeState('a2')).toBe('waiting');
+      d.hook('a2', 'PostToolUse', undefined, undefined, 'AskUserQuestion');
+      expect(d.claudeState('a2')).toBe('busy');
+
+      d.hook('a2', 'PreToolUse', undefined, undefined, 'ExitPlanMode');
+      expect(d.claudeState('a2')).toBe('waiting');
+      d.hook('a2', 'PreToolUse', undefined, undefined, 'Bash');
+      expect(d.claudeState('a2')).toBe('busy');
+    });
+
+    it('a notification during an open question does not let Enter end the wait', () => {
+      const { d } = setup();
+      d.hook('a2', 'PreToolUse', undefined, undefined, 'AskUserQuestion');
+      d.hook('a2', 'Notification', 'permission_prompt');
+      d.userInput('a2', '\r');
+      expect(d.claudeState('a2')).toBe('waiting');
+    });
+
+    it('treats an MCP elicitation like a permission prompt', () => {
+      const { d } = setup();
+      d.hook('a2', 'Notification', 'elicitation_dialog');
+      expect(d.claudeState('a2')).toBe('waiting');
+      d.userInput('a2', '\x1b');
+      expect(d.claudeState('a2')).toBe('busy');
+    });
+
+    it('idle_prompt heals a turn interrupted without Stop, but keeps waiting and done', () => {
+      const { d } = setup();
+      d.hook('a1', 'UserPromptSubmit');
+      d.hook('a1', 'Notification', 'idle_prompt');
+      expect(d.claudeState('a1')).toBe('idle');
+      d.hook('a2', 'Notification', 'permission_prompt');
+      d.hook('a2', 'Notification', 'idle_prompt');
+      expect(d.claudeState('a2')).toBe('waiting');
+      d.hook('a3', 'Stop');
+      d.hook('a3', 'Notification', 'idle_prompt');
+      expect(d.claudeState('a3')).toBe('done');
+    });
+
+    it('types messages into a finished session like an idle one', () => {
+      const { d, writes } = setup();
+      d.hook('a2', 'Stop');
+      expect(d.send('A', 'a1', 'a2', 'next step')[0]!.status).toBe('delivered');
+      expect(writes[0]!.data).toContain('next step');
+      expect(d.claudeState('a2')).toBe('busy');
+    });
+
+    it('never delivers by hand into a question waiting for an answer', () => {
+      const { d, writes } = setup();
+      d.hook('a2', 'PreToolUse', undefined, undefined, 'AskUserQuestion');
+      d.send('A', 'a1', 'a2', 'msg');
+      d.flush('a2', true);
+      expect(writes).toHaveLength(0);
+    });
   });
 });

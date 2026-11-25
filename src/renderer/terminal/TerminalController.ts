@@ -182,6 +182,10 @@ export class TerminalController {
     this.host.addEventListener('contextmenu', (e) => this.onContextMenu(e));
     this.host.addEventListener('dragover', (e) => this.onDragOver(e));
     this.host.addEventListener('drop', (e) => void this.onDrop(e));
+    // Focusing the terminal is looking at it: a Claude turn that finished is no longer news (done → idle).
+    this.host.addEventListener('focusin', () => {
+      if (useRuntime.getState().claude[this.id]?.state === 'done') void api.invoke('claude:seen', this.id);
+    });
     this.host.addEventListener(
       'paste',
       (e) => {

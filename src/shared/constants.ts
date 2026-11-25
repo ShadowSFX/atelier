@@ -30,6 +30,8 @@ export const HUB_MAX_MESSAGE = 8_000;
 export const HUB_RATE_PER_MINUTE = 20;
 export const HUB_MAX_QUEUE = 50;
 export const HUB_MAX_READ_LINES = 500;
+/** A title Claude gives its terminal (atelier_set_title), in characters. */
+export const HUB_MAX_TITLE = 48;
 
 /** Pasted clipboard images are deleted after this many days. */
 export const PASTE_IMAGE_TTL_DAYS = 7;

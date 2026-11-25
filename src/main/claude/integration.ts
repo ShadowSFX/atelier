@@ -7,9 +7,10 @@ import { toWslPath } from '@shared/shell';
  * shell's `claude` wrapper (--settings / --mcp-config). Nothing is written to the user's projects or ~/.claude, so
  * Claude Code sessions started elsewhere are unaffected.
  *
- * - hooks report the session state (idle / busy / waiting for permission) to the hub;
+ * - hooks report the session state (idle / busy / waiting for an answer / done) to the hub, and SessionStart
+ *   asks Claude to name its terminal (atelier_set_title);
  * - permissions.deny removes Claude Code's built-in cross-session tools, which see every project on the machine;
- * - the `atelier` MCP server offers project-scoped peers / send / inbox / read_output.
+ * - the `atelier` MCP server offers project-scoped peers / send / inbox / read_output, and set_title.
  */
 export interface ClaudeFiles {
   settings: string;
@@ -26,11 +27,15 @@ export interface AgentPaths {
   mcpScript: string;
 }
 
-/** Frequent events don't block Claude (async); the rare state-defining ones run in order. */
-const HOOKS: { event: string; async: boolean }[] = [
+/**
+ * Frequent events don't block Claude (async); the rare state-defining ones run in order. PostToolUse only matters
+ * for the tools that wait for the user (the answer was given): a matcher keeps it from running after every tool.
+ */
+const HOOKS: { event: string; async: boolean; matcher?: string }[] = [
   { event: 'SessionStart', async: false },
   { event: 'UserPromptSubmit', async: false },
   { event: 'PreToolUse', async: true },
+  { event: 'PostToolUse', async: true, matcher: 'AskUserQuestion|ExitPlanMode' },
   { event: 'Notification', async: true },
   { event: 'Stop', async: false },
   { event: 'SessionEnd', async: false },
@@ -41,19 +46,24 @@ const sq = (s: string) => `"${s.replace(/(["\\$`])/g, '\\$1')}"`;
 
 function settingsJson(hookCommand: string): string {
   const hooks = Object.fromEntries(
-    HOOKS.map(({ event, async }) => [
+    HOOKS.map(({ event, async, matcher }) => [
       event,
       [
         {
+          ...(matcher ? { matcher } : {}),
           hooks: [{ type: 'command', command: hookCommand, timeout: 10, ...(async ? { async: true } : {}) }],
         },
       ],
     ]),
   );
   // The atelier_* tools only reach this project's terminals: allowed without a prompt so coordination stays fluid.
-  const allow = ['atelier_peers', 'atelier_send', 'atelier_inbox', 'atelier_read_output'].map(
-    (t) => `mcp__atelier__${t}`,
-  );
+  const allow = [
+    'atelier_peers',
+    'atelier_send',
+    'atelier_inbox',
+    'atelier_read_output',
+    'atelier_set_title',
+  ].map((t) => `mcp__atelier__${t}`);
   return JSON.stringify({ permissions: { allow, deny: ['ListAgents', 'SendMessage'] }, hooks }, null, 2);
 }
 

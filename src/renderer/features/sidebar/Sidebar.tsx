@@ -4,17 +4,18 @@ import {
   Branch16Regular,
   ChevronDown12Regular,
   Dismiss12Regular,
+  LockOpen16Regular,
   Rename16Regular,
-  Sparkle12Filled,
   SplitVertical16Regular,
   SquareMultiple16Regular,
 } from '@fluentui/react-icons';
 import { memo, useState } from 'react';
+import type { ClaudeState } from '@shared/ipc';
 import type { TerminalSpec } from '@shared/workspace';
 import { cx, IconButton } from '../../components/Button';
 import { ColorSwatches } from '../../components/Overlays';
 import { api } from '../../lib/api';
-import { bytes, percent, shortPath } from '../../lib/format';
+import { bytes, percent } from '../../lib/format';
 import { openMenu, promptDialog, t, useApp, useT } from '../../state/app';
 import { useRuntime } from '../../state/runtime';
 import {
@@ -42,6 +43,15 @@ function terminalMenu(term: TerminalSpec, x: number, y: number): void {
       shortcut: 'F2',
       run: () => void renameFlow(term),
     },
+    ...(term.nameLocked
+      ? [
+          {
+            label: t('terminals.unlockName'),
+            icon: <LockOpen16Regular />,
+            run: () => updateTerminal(term.id, { nameLocked: false }),
+          },
+        ]
+      : []),
     {
       label: t('terminals.color'),
       custom: <ColorSwatches value={term.color} onPick={(color) => updateTerminal(term.id, { color })} />,
@@ -90,27 +100,52 @@ function profileMenu(x: number, y: number): void {
   );
 }
 
-function ClaudeBadge({ id }: { id: string }) {
+const CLAUDE_LABEL = {
+  idle: 'claude.idle',
+  busy: 'claude.busy',
+  waiting: 'claude.waiting',
+  done: 'claude.done',
+} as const satisfies Record<ClaudeState, string>;
+
+/** Finished: a check mark that draws itself once when the turn ends. */
+function DoneGlyph() {
+  return (
+    <svg className={s.check} viewBox="0 0 10 10" aria-hidden>
+      <path d="M2 5.3 4.2 7.4 8 3" />
+    </svg>
+  );
+}
+
+/**
+ * What the terminal's Claude session is doing, on the row's second line. Each state has its own shape as well as its
+ * color (spinning arc, dot with a halo, check mark, hollow ring), so it reads without color or motion too.
+ * Clicking it delivers queued hub messages right away.
+ */
+function ClaudeStatus({ id }: { id: string }) {
   const tr = useT();
   const status = useRuntime((st) => st.claude[id]);
   if (!status?.state) return null;
-  const label = tr(
-    status.state === 'idle' ? 'claude.idle' : status.state === 'busy' ? 'claude.busy' : 'claude.permission',
-  );
+  const { state, queued } = status;
+  const label = tr(CLAUDE_LABEL[state]);
+  const tip = tr('claude.tip', label);
   return (
     <button
       type="button"
       data-claude-terminal={id}
-      className={cx(s.claude, s[`claude${status.state}`])}
-      title={status.queued > 0 ? `${label} · ${tr('claude.queued', status.queued)}` : label}
+      data-claude-state={state}
+      className={cx(s.claude, s[state], queued > 0 && s.claudeQueued)}
+      title={queued > 0 ? `${tip} · ${tr('claude.queued', queued)}` : tip}
+      tabIndex={queued > 0 ? 0 : -1}
       onClick={(e) => {
+        // Without queued messages a click selects the row, like anywhere else on it.
+        if (queued === 0) return;
         e.stopPropagation();
-        if (status.queued > 0) void api.invoke('claude:deliver-now', id);
+        void api.invoke('claude:deliver-now', id);
       }}
     >
-      <Sparkle12Filled />
-      Claude
-      {status.queued > 0 && <span className={s.queued}>{status.queued}</span>}
+      {state === 'done' ? <DoneGlyph /> : <span className={s.glyph} aria-hidden />}
+      <span className={s.claudeLabel}>{label}</span>
+      {queued > 0 && <span className={s.queued}>{queued}</span>}
     </button>
   );
 }
@@ -132,7 +167,6 @@ const Row = memo(function Row({
 }) {
   const rt = useRuntime((st) => st.terminals[term.id]);
   const usage = useRuntime((st) => st.byTerminal[term.id]);
-  const home = useApp((st) => st.home);
   const [dragging, setDragging] = useState(false);
   const progress = rt?.progress && rt.progress.state !== 0 ? rt.progress : null;
 
@@ -184,16 +218,14 @@ const Row = memo(function Row({
       <span className={s.bar} style={term.color ? { background: term.color } : undefined} />
       <span className={s.name}>{term.name}</span>
       <span className={s.meta}>
-        {usage?.foreground ? (
-          <span className={cx(s.metaItem, s.proc)}>{usage.foreground}</span>
-        ) : rt?.status === 'exited' ? (
+        <ClaudeStatus id={term.id} />
+        {rt?.status === 'exited' && (
           <span className={cx(s.metaItem, s.exited)}>
             {t('term.exited', rt.exitCode ?? 0).replace(/\.$/, '')}
           </span>
-        ) : null}
-        {term.lastCwd && <span className={cx(s.metaItem, s.cwd)}>{shortPath(term.lastCwd, home)}</span>}
+        )}
         {rt?.branch && (
-          <span className={s.metaItem}>
+          <span className={cx(s.metaItem, s.branch)}>
             <Branch16Regular fontSize={12} />
             {rt.branch}
           </span>
@@ -201,7 +233,6 @@ const Row = memo(function Row({
       </span>
       <span className={s.side}>
         <span className={s.badges}>
-          <ClaudeBadge id={term.id} />
           {rt?.activity && !visible && <span className={s.activity} title="Output" />}
         </span>
         {usage && (

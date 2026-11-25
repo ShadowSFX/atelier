@@ -62,7 +62,7 @@ function projectMenu(p: Project, x: number, y: number): void {
 function useAttention(p: Project, active: boolean): 'activity' | 'claude' | null {
   return useRuntime((st) => {
     if (active) return null;
-    if (p.terminals.some((x) => st.claude[x.id]?.state === 'permission')) return 'claude';
+    if (p.terminals.some((x) => st.claude[x.id]?.state === 'waiting')) return 'claude';
     return p.terminals.some((x) => st.terminals[x.id]?.activity) ? 'activity' : null;
   });
 }

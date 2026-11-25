@@ -11,6 +11,8 @@ export interface TerminalSpec {
   profileId: string;
   /** Last working directory reported by the shell (OSC 7); the next start opens here. */
   lastCwd: string | null;
+  /** The user named it by hand: Claude's atelier_set_title leaves the name alone. */
+  nameLocked?: boolean;
 }
 
 export interface PaneColumn {
@@ -52,6 +54,7 @@ const RawTerminal = z.object({
   color: z.unknown().optional().transform(normalizeColor),
   profileId: z.string().catch(''),
   lastCwd: z.string().nullable().catch(null),
+  nameLocked: z.boolean().optional().catch(undefined),
 });
 const RawProject = z.object({
   id: Id,

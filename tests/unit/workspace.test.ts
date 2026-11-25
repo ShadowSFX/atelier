@@ -135,6 +135,27 @@ describe('workspace loading', () => {
     expect(ws.activeProjectId).toBe('p1');
   });
 
+  it('keeps a name locked by the user, tolerating old files and bad values', () => {
+    const ws = parseWorkspace({
+      projects: [
+        {
+          id: 'p1',
+          path: '/work/api',
+          terminals: [
+            { id: 't1', name: 'mine', nameLocked: true },
+            { id: 't2', name: 'old file' },
+            { id: 't3', name: 'bad', nameLocked: 'yes' },
+          ],
+        },
+      ],
+    });
+    const [t1, t2, t3] = ws.projects[0]!.terminals;
+    expect(t1).toMatchObject({ name: 'mine', nameLocked: true });
+    expect(t2!.nameLocked).toBeUndefined();
+    expect(t3!.name).toBe('bad');
+    expect(t3!.nameLocked).toBeUndefined();
+  });
+
   it('identifies Windows directories case-insensitively', () => {
     expect(pathIdentity('C:\\Work\\API\\')).toBe(pathIdentity('c:/work/api'));
     expect(pathIdentity('/home/Me')).not.toBe(pathIdentity('/home/me'));

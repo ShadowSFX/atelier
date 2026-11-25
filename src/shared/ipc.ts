@@ -33,7 +33,11 @@ export interface PathInfo {
   isDirectory: boolean;
 }
 
-export type ClaudeState = 'idle' | 'busy' | 'permission';
+/**
+ * idle: the session waits for a prompt; busy: it is working; waiting: it needs an answer from the user (a
+ * permission prompt, a question, plan approval); done: it finished a turn the user hasn't looked at yet.
+ */
+export type ClaudeState = 'idle' | 'busy' | 'waiting' | 'done';
 
 export interface ClaudeStatus {
   terminalId: string;
@@ -100,6 +104,8 @@ export interface Invoke {
   'claude:deliver-now': (terminalId: string) => void;
   /** The shell's own prompt came back in a terminal that had a Claude session (it ended). */
   'claude:shell-prompt': (terminalId: string) => void;
+  /** The user looked at a terminal whose Claude session finished (done → idle). */
+  'claude:seen': (terminalId: string) => void;
   'term:read-reply': (reqId: number, text: string | null) => void;
   'update:install': () => void;
   /** The renderer got 'app:closing' and is handling it (it may ask the user before quitting). */
@@ -117,6 +123,8 @@ export interface Events {
   /** The hub needs the text of a terminal (atelier_read_output). Reply with 'term:read-reply'. */
   'term:read-request': (reqId: number, terminalId: string, lines: number) => void;
   'update:status': (s: UpdateStatus) => void;
+  /** The Claude session of a terminal named it (atelier_set_title). Ignored when the user named it by hand. */
+  'terminal:set-title': (terminalId: string, title: string) => void;
 }
 
 /** Messages on the PTY MessagePort. */

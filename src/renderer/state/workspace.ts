@@ -72,6 +72,7 @@ export async function loadWorkspace(): Promise<void> {
   const p = activeProject();
   if (p) startProject(p);
   api.on('app:open-project', (path) => void addProject(path));
+  api.on('terminal:set-title', applyClaudeTitle);
 }
 
 /** Saves right away (before quitting). */
@@ -261,9 +262,18 @@ export function updateTerminal(id: string, patch: Partial<Omit<TerminalSpec, 'id
   }));
 }
 
+/** The user's rename: the name is locked against Claude's atelier_set_title. */
 export function renameTerminal(id: string, name: string): void {
   const clean = name.trim();
-  if (clean) updateTerminal(id, { name: clean });
+  if (clean) updateTerminal(id, { name: clean, nameLocked: true });
+}
+
+/** A title from the terminal's Claude session; a name the user gave by hand wins. */
+export function applyClaudeTitle(id: string, title: string): void {
+  const term = findTerminal(id)?.terminal;
+  const clean = title.trim();
+  if (!term || term.nameLocked || !clean || term.name === clean) return;
+  updateTerminal(id, { name: clean });
 }
 
 export function moveTerminal(id: string, toIndex: number): void {

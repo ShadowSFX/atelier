@@ -1,7 +1,8 @@
 /**
  * Claude Code hook (all events) for sessions started in an Atelier terminal: tells the hub what the session is
- * doing (idle, busy, waiting for permission). Runs with ELECTRON_RUN_AS_NODE=1. It must be fast and must never
- * disturb Claude: any failure exits 0 silently.
+ * doing (idle, busy, waiting for an answer, done). On SessionStart it also gives Claude a short instruction (as
+ * additional context) to name its terminal with atelier_set_title. Runs with ELECTRON_RUN_AS_NODE=1. It must be
+ * fast and must never disturb Claude: any failure exits 0 silently.
  */
 import type { HookEvent } from '@shared/hub';
 import { hubEnv, sendOnce } from './hubClient';
@@ -17,6 +18,12 @@ const EVENTS = new Set<HookEvent>([
   'SessionEnd',
 ]);
 
+const SESSION_CONTEXT =
+  'This session runs in an Atelier terminal, which the user sees in a sidebar next to their other terminals. ' +
+  'Whenever you start a plan or a new piece of work (not a follow-up on the current one), call the ' +
+  'atelier_set_title tool with a short title for it: 2-5 words, in the language the user writes in. If it ' +
+  'answers that the user named the terminal by hand, leave the title alone.';
+
 function readStdin(timeoutMs: number): Promise<string> {
   return new Promise((resolve) => {
     let data = '';
@@ -31,10 +38,21 @@ function readStdin(timeoutMs: number): Promise<string> {
   });
 }
 
+/** Writes to stdout and waits until it is flushed (pipe writes can still be pending when the process exits). */
+function print(text: string): Promise<void> {
+  return new Promise((resolve) => {
+    try {
+      process.stdout.write(text, () => resolve());
+    } catch {
+      resolve();
+    }
+  });
+}
+
 async function main(): Promise<void> {
   const env = hubEnv();
   if (!env) return;
-  let input: { hook_event_name?: string; notification_type?: string } = {};
+  let input: { hook_event_name?: string; notification_type?: string; tool_name?: string } = {};
   try {
     input = JSON.parse(await readStdin(2000)) as typeof input;
   } catch {
@@ -42,11 +60,19 @@ async function main(): Promise<void> {
   }
   const event = input.hook_event_name as HookEvent;
   if (!EVENTS.has(event)) return;
+  if (event === 'SessionStart') {
+    await print(
+      JSON.stringify({
+        hookSpecificOutput: { hookEventName: 'SessionStart', additionalContext: SESSION_CONTEXT },
+      }),
+    );
+  }
   await sendOnce(env, {
     t: 'hook',
     event,
     at: startedAt,
     ...(typeof input.notification_type === 'string' ? { notificationType: input.notification_type } : {}),
+    ...(typeof input.tool_name === 'string' ? { tool: input.tool_name.slice(0, 64) } : {}),
   });
 }
 
