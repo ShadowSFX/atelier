@@ -80,6 +80,25 @@ async function redPixels(app: ElectronApplication, page: Page): Promise<number> 
   }, rect);
 }
 
+/**
+ * Types a marker (no Enter) and checks that it lands on the prompt's line. When xterm and ConPTY disagree about the
+ * cursor, PSReadLine places the typed text with absolute positions on another line of the buffer.
+ */
+async function expectTypedOnPromptLine(page: Page, id: string, marker: string): Promise<void> {
+  await page.locator('main section').first().click();
+  await page.keyboard.type(marker, { delay: 2 });
+  const all = await waitText(page, id, new RegExp(marker));
+  const line = all
+    .split('\n')
+    .reverse()
+    .find((l) => l.includes(marker));
+  expect(line).toMatch(/alpha project/);
+  await page.keyboard.press('Escape'); // PSReadLine: clear the line
+  await expect.poll(() => text(page, id)).not.toContain(marker);
+}
+
+const count = (s: string, needle: string) => s.split(needle).length - 1;
+
 async function switchTo(page: Page, name: string): Promise<void> {
   await page.getByRole('tab', { name }).dispatchEvent('pointerdown', { button: 0 });
 }
@@ -158,5 +177,26 @@ test('projects, terminals, panes, no stale paint, restore', async () => {
   await expect(page.locator('main section')).toHaveCount(2);
   await waitText(page, a!, /line 20000/);
   await waitText(page, a!, /sesión restaurada|session restored/);
+  // The new shell's prompt and what is typed share one line (ConPTY starts at 1,1 without clearing).
+  await expectTypedOnPromptLine(page, a!, 'sync-after-restore');
+
+  // Clear history drops the scrollback but leaves the screen where ConPTY has it (the prompt is a few rows down).
+  await page.locator('main section').first().click();
+  await typeLine(page, '1..5 | % { "pad $_" }');
+  await waitText(page, a!, /^pad 5$/m);
+  await page.locator('main section').first().click({ button: 'right' });
+  await page.getByRole('menuitem', { name: /Borrar historial|Clear history/ }).click();
+  await expect.poll(() => text(page, a!)).not.toMatch(/line 20000/);
+  expect(await text(page, a!)).toMatch(/^pad 5$/m);
+  await expectTypedOnPromptLine(page, a!, 'sync-after-clear');
+
+  // Restarting an exited shell starts it in step too.
+  await page.locator('main section').first().click();
+  await typeLine(page, 'exit');
+  await waitText(page, a!, /terminó con código|exited with code/);
+  const prompts = count(await text(page, a!), 'alpha project');
+  await page.keyboard.press('Enter');
+  await expect.poll(async () => count(await text(page, a!), 'alpha project')).toBeGreaterThan(prompts);
+  await expectTypedOnPromptLine(page, a!, 'sync-after-restart');
   await app.close();
 });

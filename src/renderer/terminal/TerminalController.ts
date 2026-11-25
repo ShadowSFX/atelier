@@ -216,13 +216,26 @@ export class TerminalController {
     const snapshot = await api.invoke('snapshot:read', this.id);
     if (this.disposed) return;
     if (snapshot) {
-      this.term.write(snapshot);
-      // Push the restored screen into scrollback: the new shell (ConPTY) clears the viewport when it starts.
-      this.term.write(
-        `\r\n\x1b[2m── ${t('term.restored')} ──\x1b[0m\r\n` + '\r\n'.repeat(Math.max(0, this.term.rows - 1)),
-      );
+      await this.resetForShell(snapshot + `\r\n\x1b[2m── ${t('term.restored')} ──\x1b[0m\r\n`);
+      if (this.disposed) return;
     }
     await this.spawn();
+  }
+
+  /**
+   * Writes `prefix`, then leaves the screen the way a new shell expects it: ConPTY 1.23 (useConptyDll) neither clears
+   * nor homes the cursor when it starts, it assumes a blank screen with the cursor at (1,1) and later places text
+   * with absolute positions. The viewport goes to scrollback (ED 2 with scrollOnEraseInDisplay, which measures the
+   * rows when parsed, so a resize meanwhile can't leave old lines on screen) and the cursor goes home.
+   */
+  private resetForShell(prefix = ''): Promise<void> {
+    this.term.options.scrollOnEraseInDisplay = true;
+    return new Promise((resolve) =>
+      this.term.write(prefix + '\x1b[0m\x1b[2J\x1b[H', () => {
+        this.term.options.scrollOnEraseInDisplay = false;
+        resolve();
+      }),
+    );
   }
 
   private async spawn(): Promise<void> {
@@ -259,7 +272,9 @@ export class TerminalController {
   async restart(): Promise<void> {
     this.started = true;
     await this.open();
-    this.term.write('\x1b[0m\r\n');
+    // The previous output stays in scrollback; the new shell starts at the top, where ConPTY thinks it is.
+    await this.resetForShell();
+    if (this.disposed) return;
     await this.spawn();
   }
 
@@ -735,9 +750,18 @@ export class TerminalController {
     return this.serializer.serialize({ scrollback: 1000, excludeAltBuffer: true, excludeModes: true });
   }
 
+  /**
+   * Clear history: drops the scrollback only (ED 3). The screen and the cursor stay put: ConPTY keeps its own copy of
+   * the screen and places text with absolute positions, and its clear() (1.23) doesn't move it, so moving the prompt
+   * line to the top here (xterm's clear()) would put what is typed on another line.
+   */
   clear(): void {
-    this.term.clear();
-    for (const p of this.prompts.splice(0)) p.marker.dispose();
+    this.term.write('\x1b[3J', () => {
+      // Markers on the dropped lines were disposed with them.
+      for (let i = this.prompts.length - 1; i >= 0; i--) {
+        if (this.prompts[i]!.marker.isDisposed) this.prompts.splice(i, 1);
+      }
+    });
   }
 
   // ───────────── Context menu ─────────────
