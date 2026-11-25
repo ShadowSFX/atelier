@@ -1,0 +1,117 @@
+/* Design tokens, taken from RDMan (Themes/Dark.xaml, Light.xaml, Controls.xaml). Always use these variables. */
+
+@font-face {
+  font-family: 'Cascadia Code NF';
+  src: url('../assets/fonts/CascadiaCodeNF.woff2') format('woff2');
+  font-weight: 200 700;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'Cascadia Code NF';
+  src: url('../assets/fonts/CascadiaCodeNFItalic.woff2') format('woff2');
+  font-weight: 200 700;
+  font-style: italic;
+  font-display: block;
+}
+
+:root {
+  color-scheme: dark;
+  --bg-base: #15181d;
+  --bg-content: #1b1f26;
+  --bg-raised: #232833;
+  --bg-input: #20242c;
+  --bg-hover: #ffffff14;
+  --bg-pressed: #ffffff0c;
+  --bg-selected: #7480ff2e;
+  --bg-selected-inactive: #ffffff1f;
+  --bg-popup: #252a35;
+  --bg-scrim: #08090c8c;
+  --bg-toast: #2b3140;
+  --line: #2a303a;
+  --line-strong: #3b4250;
+  --line-popup: #363d4b;
+  --fg-1: #e8ebf1;
+  --fg-2: #a6aebb;
+  --fg-3: #737c8c;
+  --fg-disabled: #525a67;
+  --fg-on-accent: #ffffff;
+  --accent: #7480ff;
+  --accent-hover: #8791ff;
+  --accent-pressed: #6570ec;
+  --accent-text: #a3abff;
+  --accent-subtle: #7480ff26;
+  --online: #3fbf62;
+  --warn: #e0ae45;
+  --danger: #f0605d;
+  --danger-hover: #f37572;
+  --danger-subtle: #f0605d26;
+  --status-unknown: #5d6574;
+
+  --shadow-tooltip: 0 2px 12px rgb(0 0 0 / 0.25);
+  --shadow-menu: 0 4px 18px rgb(0 0 0 / 0.3);
+  --shadow-toast: 0 6px 24px rgb(0 0 0 / 0.35);
+  --shadow-palette: 0 12px 40px rgb(0 0 0 / 0.4);
+
+  --font-ui: 'Segoe UI Variable Text', 'Segoe UI', 'Inter Variable', system-ui, sans-serif;
+  --font-display: 'Segoe UI Variable Display', 'Segoe UI', 'Inter Variable', system-ui, sans-serif;
+  --font-small: 'Segoe UI Variable Small', 'Segoe UI', 'Inter Variable', system-ui, sans-serif;
+  --font-mono: 'Cascadia Code NF', 'Cascadia Mono', Consolas, monospace;
+
+  --fs-caption: 12px;
+  --fs-body: 13px;
+  --fs-large: 14px;
+  --fs-subtitle: 16px;
+  --fs-title: 20px;
+
+  --r-xs: 4px;
+  --r-sm: 5px;
+  --r-md: 6px;
+  --r-lg: 8px;
+  --r-xl: 10px;
+
+  --h-titlebar: 40px;
+  --h-statusbar: 28px;
+  --h-row: 32px;
+  --h-control: 32px;
+  --h-pane-header: 32px;
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    color-scheme: light;
+    --bg-base: #f1f2f6;
+    --bg-content: #ffffff;
+    --bg-raised: #ffffff;
+    --bg-input: #ffffff;
+    --bg-hover: #0b15300f;
+    --bg-pressed: #0b153008;
+    --bg-selected: #4f5bd524;
+    --bg-selected-inactive: #0b153014;
+    --bg-popup: #ffffff;
+    --bg-scrim: #1a1e265c;
+    --bg-toast: #262b36;
+    --line: #dde0e7;
+    --line-strong: #c5cad4;
+    --line-popup: #d3d7df;
+    --fg-1: #191d25;
+    --fg-2: #4e5767;
+    --fg-3: #7d8595;
+    --fg-disabled: #a8aeb9;
+    --accent: #4f5bd5;
+    --accent-hover: #4450c4;
+    --accent-pressed: #3a45ae;
+    --accent-text: #3e49be;
+    --accent-subtle: #4f5bd51a;
+    --online: #1e9e50;
+    --warn: #b7791f;
+    --danger: #d63c3c;
+    --danger-hover: #c23030;
+    --danger-subtle: #d63c3c1a;
+    --status-unknown: #a2a9b5;
+    --shadow-tooltip: 0 2px 12px rgb(26 30 38 / 0.12);
+    --shadow-menu: 0 4px 18px rgb(26 30 38 / 0.16);
+    --shadow-toast: 0 6px 24px rgb(26 30 38 / 0.2);
+    --shadow-palette: 0 12px 40px rgb(26 30 38 / 0.22);
+  }
+}

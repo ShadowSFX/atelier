@@ -1,0 +1,64 @@
+appId: com.shadowsfx.atelier
+productName: Atelier
+copyright: Copyright © 2026 ShadowSFX
+directories:
+  output: release
+  buildResources: resources
+
+files:
+  - out/**
+  - resources/icon.png
+  - package.json
+  # node-pty sources are only needed to compile it.
+  - '!node_modules/node-pty/{src,deps,third_party,scripts,typings}/**'
+  - '!node_modules/**/*.{md,map,ts}'
+  - '!node_modules/**/{test,tests,__tests__,docs,example,examples}/**'
+
+# Native pieces must live outside the asar archive (they are executed or loaded from disk).
+asarUnpack:
+  - node_modules/node-pty/**
+  - node_modules/koffi/**
+
+# node-pty ships N-API prebuilds (Windows) or is built against Node headers on install (Linux); koffi bundles its
+# binaries. N-API modules load in Electron as they are, so nothing is rebuilt for Electron's ABI.
+npmRebuild: false
+
+electronFuses:
+  # The Claude Code hooks and MCP server run with Atelier's own executable as node (ELECTRON_RUN_AS_NODE=1).
+  runAsNode: true
+  enableCookieEncryption: true
+  enableNodeOptionsEnvironmentVariable: false
+  enableNodeCliInspectArguments: false
+
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+  icon: resources/icon.ico
+  artifactName: Atelier-Setup-${version}.${ext}
+
+nsis:
+  oneClick: true
+  perMachine: false
+  allowElevation: false
+  deleteAppDataOnUninstall: false
+  shortcutName: Atelier
+
+linux:
+  target:
+    - AppImage
+    - deb
+  category: Development
+  icon: resources/icon.png
+  maintainer: ShadowSFX
+  synopsis: Project-based terminal workspace
+  artifactName: Atelier-${version}-${arch}.${ext}
+
+deb:
+  depends: [libnss3, libgtk-3-0, libxss1, libasound2t64 | libasound2]
+
+publish:
+  provider: github
+  owner: ShadowSFX
+  repo: atelier
+  releaseType: release

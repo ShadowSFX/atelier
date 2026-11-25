@@ -1,0 +1,160 @@
+.bar {
+  display: flex;
+  align-items: center;
+  height: var(--h-titlebar);
+  /* Native caption buttons (title bar overlay) occupy the right edge. */
+  padding-right: calc(100vw - env(titlebar-area-x, 0px) - env(titlebar-area-width, 100vw) + 8px);
+  -webkit-app-region: drag;
+}
+.bar button,
+.bar input,
+.tab {
+  -webkit-app-region: no-drag;
+}
+
+.brand {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 46px;
+}
+
+.tabs {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.tab {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 1 auto;
+  min-width: 96px;
+  max-width: 220px;
+  height: 30px;
+  padding: 0 4px 0 10px;
+  border: 1px solid transparent;
+  border-radius: var(--r-md);
+  color: var(--fg-2);
+}
+.tab:hover {
+  background: var(--bg-hover);
+}
+.active {
+  border-color: var(--line);
+  background: var(--bg-content);
+  color: var(--fg-1);
+}
+.active:hover {
+  background: var(--bg-content);
+}
+/* Identification color: a 2px strip on the tab's top edge, inset 8px (RDMan's tab language). */
+.stripe {
+  position: absolute;
+  top: -1px;
+  left: 8px;
+  right: 8px;
+  height: 2px;
+  border-radius: 0 0 2px 2px;
+}
+.tabIcon {
+  position: relative;
+  display: grid;
+  place-items: center;
+  flex: none;
+  color: var(--fg-2);
+}
+.active .tabIcon {
+  color: var(--fg-1);
+}
+.name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.dot {
+  position: absolute;
+  top: -3px;
+  right: -4px;
+  width: 7px;
+  height: 7px;
+  border: 1.5px solid var(--bg-base);
+  border-radius: 50%;
+  background: var(--warn);
+}
+.dotAttention {
+  background: var(--accent);
+}
+.close {
+  opacity: 0;
+}
+.tab:hover .close,
+.active .close,
+.close:focus-visible {
+  opacity: 1;
+}
+.dropBefore::before {
+  content: '';
+  position: absolute;
+  left: -3px;
+  top: 4px;
+  bottom: 4px;
+  width: 3px;
+  border-radius: 1.5px;
+  background: var(--accent);
+}
+
+.add {
+  flex: none;
+  margin-left: 2px;
+}
+
+.spacer {
+  flex: 1 1 16px;
+  min-width: 16px;
+  align-self: stretch;
+}
+
+.search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 1 360px;
+  min-width: 140px;
+  height: 30px;
+  padding: 0 6px 0 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--bg-hover);
+  color: var(--fg-3);
+  text-align: left;
+}
+.search:hover {
+  border-color: var(--line-strong);
+}
+.searchText {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.kbd {
+  flex: none;
+  padding: 1px 5px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-xs);
+  background: var(--bg-hover);
+  font-size: 11px;
+}
+
+.tools {
+  display: flex;
+  margin-left: 6px;
+}

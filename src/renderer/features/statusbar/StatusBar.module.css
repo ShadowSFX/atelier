@@ -1,0 +1,57 @@
+.bar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  height: var(--h-statusbar);
+  padding: 0 8px 0 14px;
+  color: var(--fg-3);
+  font: var(--fs-caption) / 1 var(--font-small);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+}
+.item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.label {
+  color: var(--fg-3);
+}
+.value {
+  color: var(--fg-2);
+}
+.warn {
+  color: var(--warn);
+}
+.danger {
+  color: var(--danger);
+}
+.spark {
+  display: block;
+}
+.spacer {
+  flex: 1;
+}
+.claude {
+  color: var(--accent-text);
+}
+.update {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 22px;
+  padding: 0 2px 0 8px;
+  border-radius: var(--r-xs);
+  background: var(--accent-subtle);
+  color: var(--accent-text);
+}
+.updateBtn {
+  height: 18px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 3px;
+  background: var(--accent);
+  color: var(--fg-on-accent);
+  font: 600 11px / 1 var(--font-small);
+}

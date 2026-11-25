@@ -1,0 +1,239 @@
+/* The content sheet: lighter surface lying on the window background, rounded top-left (RDMan). */
+.sheet {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  border-top: 1px solid var(--line);
+  border-left: 1px solid var(--line);
+  border-top-left-radius: var(--r-lg);
+  background: var(--bg-content);
+  overflow: hidden;
+}
+
+.pane {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+.header {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: none;
+  height: var(--h-pane-header);
+  padding: 0 4px 0 12px;
+  border-bottom: 1px solid var(--line);
+  color: var(--fg-2);
+}
+/* Active pane marker: 2px accent line across the top (RDMan's split view). */
+.header::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 2px;
+  background: var(--accent);
+  opacity: 0;
+  transition: opacity 120ms;
+}
+.active .header::before {
+  opacity: 1;
+}
+.multi .header {
+  cursor: pointer;
+}
+.colorBar {
+  flex: none;
+  width: 3px;
+  height: 16px;
+  border-radius: 1.5px;
+  background: var(--line-strong);
+}
+.paneName {
+  flex: none;
+  max-width: 40%;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.active .paneName {
+  color: var(--fg-1);
+  font-weight: 600;
+}
+.paneCwd {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--fg-3);
+  font: var(--fs-caption) / 1 var(--font-small);
+  direction: rtl;
+  text-align: left;
+}
+.paneTools {
+  display: flex;
+  flex: none;
+}
+
+.body {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.splitter {
+  position: relative;
+  flex: none;
+  width: 5px;
+  margin: 0 -2px;
+  z-index: 2;
+  cursor: col-resize;
+}
+.splitter::after {
+  content: '';
+  position: absolute;
+  left: 2px;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--line);
+}
+.splitter:hover::after,
+.splitterActive::after {
+  left: 1px;
+  width: 3px;
+  background: var(--accent);
+}
+
+/* ───────────── Drop zones (terminal dragged from the sidebar) ───────────── */
+
+.dropLayer {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+}
+.zone {
+  position: relative;
+}
+.zoneOn::after {
+  content: attr(data-label);
+  position: absolute;
+  inset: 8px;
+  display: grid;
+  place-items: center;
+  border: 2px solid var(--accent);
+  border-radius: var(--r-md);
+  background: color-mix(in srgb, var(--accent-subtle) 72%, transparent);
+  color: var(--accent-text);
+  font-weight: 600;
+}
+.dropLayer[data-full='true'] .zoneSide.zoneOn::after {
+  border-color: var(--line-strong);
+  background: var(--bg-hover);
+  color: var(--fg-3);
+}
+
+/* ───────────── Search ───────────── */
+
+.search {
+  position: absolute;
+  top: 8px;
+  right: 20px;
+  z-index: 6;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px;
+  border: 1px solid var(--line-popup);
+  border-radius: var(--r-lg);
+  background: var(--bg-popup);
+  box-shadow: var(--shadow-menu);
+}
+.searchInput {
+  width: 220px;
+  height: 28px;
+  margin-right: 4px;
+  padding: 0 8px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-xs);
+  background: var(--bg-input);
+  color: var(--fg-1);
+  outline: none;
+  user-select: text;
+}
+.searchInput:focus {
+  border-color: var(--accent);
+}
+.noMatch,
+.noMatch:focus {
+  border-color: var(--danger);
+}
+.toggle {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--r-xs);
+  background: transparent;
+  color: var(--fg-2);
+  font: 12px var(--font-mono);
+}
+.toggle:hover {
+  background: var(--bg-hover);
+  color: var(--fg-1);
+}
+.toggleOn {
+  background: var(--accent-subtle);
+  color: var(--fg-1);
+}
+.count {
+  min-width: 64px;
+  padding: 0 6px;
+  color: var(--fg-3);
+  font-size: var(--fs-caption);
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+/* ───────────── Empty states ───────────── */
+
+.empty {
+  flex: 1;
+  display: grid;
+  place-items: center;
+  padding: 32px;
+}
+.emptyCard {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  max-width: 420px;
+}
+.emptyTitle {
+  margin: 0;
+  font: 600 var(--fs-title) / 26px var(--font-display);
+}
+.emptyText {
+  margin: 0;
+  color: var(--fg-2);
+  line-height: 20px;
+}
+.emptyHint {
+  color: var(--fg-3);
+  font-size: var(--fs-caption);
+}
+.dropTarget {
+  outline: 2px dashed var(--accent);
+  outline-offset: -12px;
+}
