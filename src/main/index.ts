@@ -6,6 +6,7 @@ import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import type { BrowserWindow } from 'electron';
 import { app, dialog, MessageChannelMain, nativeTheme, shell } from 'electron';
+import { QUIT_KILL_WAIT_MS } from '@shared/constants';
 import { parseSettings, type Settings } from '@shared/settings';
 import { parseWorkspace, type Workspace } from '@shared/workspace';
 import { writeClaudeFiles, type ClaudeFiles } from './claude/integration';
@@ -256,9 +257,14 @@ async function main(): Promise<void> {
     killAll();
     hub.stop();
     notifier.closeAll();
-    updater.apply(restart);
-    win?.destroy();
-    app.quit();
+    // Windows kills the shells one at a time (PtyManager.ptyQueue): the window goes now, the process once they are
+    // gone (or after QUIT_KILL_WAIT_MS).
+    win?.hide();
+    void Promise.race([ptys.settled(), new Promise((r) => setTimeout(r, QUIT_KILL_WAIT_MS))]).then(() => {
+      updater.apply(restart);
+      win?.destroy();
+      app.quit();
+    });
   };
   app.on('window-all-closed', () => app.quit());
 

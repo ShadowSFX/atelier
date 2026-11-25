@@ -10,6 +10,10 @@ export const FLOW_LOW_WATER = 5_000;
 export const ACK_INTERVAL_MS = 8;
 /** Input is written to the PTY in chunks of this size (large pastes). */
 export const INPUT_CHUNK = 16 * 1024;
+/** Windows kills one shell at a time; the next one goes after the previous exited or after this long. */
+export const PTY_KILL_WAIT_MS = 1_500;
+/** Quitting waits at most this long for the shells to be gone. */
+export const QUIT_KILL_WAIT_MS = 5_000;
 
 /** At most this many terminals are shown side by side. */
 export const MAX_COLUMNS = 3;

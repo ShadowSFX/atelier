@@ -3,7 +3,13 @@ import { existsSync, statSync } from 'node:fs';
 import { homedir } from 'node:os';
 import type { MessagePortMain } from 'electron';
 import * as pty from 'node-pty';
-import { FLOW_HIGH_WATER, FLOW_LOW_WATER, INPUT_CHUNK, PTY_BATCH_MS } from '@shared/constants';
+import {
+  FLOW_HIGH_WATER,
+  FLOW_LOW_WATER,
+  INPUT_CHUNK,
+  PTY_BATCH_MS,
+  PTY_KILL_WAIT_MS,
+} from '@shared/constants';
 import type { PtyFrame, SpawnRequest, SpawnResult } from '@shared/ipc';
 import type { Profile } from '@shared/shell';
 import { log } from '../log';
@@ -49,6 +55,14 @@ export function baseEnv(): Record<string, string> {
   return env;
 }
 
+function terminate(proc: pty.IPty): void {
+  try {
+    proc.kill();
+  } catch {
+    /* already gone */
+  }
+}
+
 function isDirectory(path: string): boolean {
   try {
     return existsSync(path) && statSync(path).isDirectory();
@@ -71,6 +85,12 @@ export class PtyManager extends EventEmitter<{
   /** Bumped by every spawn and kill of a terminal: a spawn that was overtaken while awaiting gives up. */
   private readonly generation = new Map<string, number>();
   private port: MessagePortMain | null = null;
+  /**
+   * Windows: shells are killed and spawned one at a time. node-pty's ConPTY keeps every pty in a global list that its
+   * exit threads (one per shell) edit without a lock (conpty.cc remove_pty_baton): shells dying together corrupt it
+   * (an "Assertion failed" dialog that hangs quitting, or a crash).
+   */
+  private ptyQueue: Promise<void> = Promise.resolve();
 
   constructor(
     private readonly profiles: ProfileRegistry,
@@ -120,6 +140,12 @@ export class PtyManager extends EventEmitter<{
       claudeExe: this.provider.claudeExe(),
     });
 
+    if (process.platform === 'win32') {
+      // Not while a killed shell (a restart's old one) is still leaving node-pty's list: see ptyQueue.
+      await this.ptyQueue;
+      if (this.generation.get(req.terminalId) !== gen) return { ok: false, error: 'cancelled' };
+    }
+
     let proc: pty.IPty;
     try {
       proc = pty.spawn(launch.file, launch.args, {
@@ -149,8 +175,8 @@ export class PtyManager extends EventEmitter<{
     this.sessions.set(s.id, s);
     proc.onData((d) => this.onData(s, d));
     proc.onExit(({ exitCode }) => {
-      if (this.sessions.get(s.id) !== s) return; // replaced by a restart
       s.exited = true;
+      if (this.sessions.get(s.id) !== s) return; // killed, or replaced by a restart
       this.flush(s);
       this.send({ t: 'exit', id: s.id, code: exitCode });
       this.sessions.delete(s.id);
@@ -246,15 +272,32 @@ export class PtyManager extends EventEmitter<{
     if (!s) return;
     this.sessions.delete(id);
     if (s.flushTimer) clearTimeout(s.flushTimer);
-    try {
-      s.proc.kill();
-    } catch {
-      /* already gone */
-    }
+    if (process.platform === 'win32') this.ptyQueue = this.ptyQueue.then(() => this.killAndWait(s));
+    else terminate(s.proc);
+  }
+
+  /** Kills a shell and resolves once it has exited, or after PTY_KILL_WAIT_MS. */
+  private killAndWait(s: Session): Promise<void> {
+    if (s.exited) return Promise.resolve();
+    return new Promise((resolve) => {
+      const timer = setTimeout(() => done(), PTY_KILL_WAIT_MS);
+      const exit = s.proc.onExit(() => done());
+      function done(): void {
+        clearTimeout(timer);
+        exit.dispose();
+        resolve();
+      }
+      terminate(s.proc);
+    });
   }
 
   killAll(): void {
     for (const id of [...this.sessions.keys()]) this.kill(id);
+  }
+
+  /** Resolves when every kill asked for so far is done (Windows kills one shell at a time). */
+  settled(): Promise<void> {
+    return this.ptyQueue;
   }
 
   has(id: string): boolean {
