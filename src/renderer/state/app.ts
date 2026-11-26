@@ -114,8 +114,28 @@ export async function loadApp(): Promise<void> {
   window
     .matchMedia('(prefers-color-scheme: dark)')
     .addEventListener('change', (e) => useApp.setState({ dark: e.matches }));
-  api.on('update:status', (update) => useApp.setState({ update }));
+  api.on('update:status', onUpdateStatus);
   if (info.dataFallback) toast(t('data.notPortable', info.dataDir), 'error');
+}
+
+let manualCheck = false;
+
+/** "Check for updates" (Settings, palette): the outcome is shown in a toast as well as in the status bar. */
+export function checkForUpdates(): void {
+  manualCheck = true;
+  void api.invoke('update:check');
+}
+
+function onUpdateStatus(update: UpdateStatus): void {
+  useApp.setState({ update });
+  if (!manualCheck || update.state === 'checking') return;
+  manualCheck = false;
+  if (update.state === 'current') toast(t('update.current', useApp.getState().version), 'success');
+  else if (update.state === 'error') toast(t('update.error'), 'error');
+  else if (update.state === 'unsupported') toast(t('update.unsupported'));
+  else if (update.state === 'downloaded') toast(t('status.update', update.version ?? ''), 'success');
+  else if (update.state === 'downloading' || update.state === 'available')
+    toast(t('update.downloading', update.version ?? ''));
 }
 
 export async function saveSettings(patch: SettingsPatch): Promise<void> {

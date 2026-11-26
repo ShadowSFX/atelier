@@ -17,6 +17,7 @@ import {
   parseRelease,
   parseVersion,
   planUpdate,
+  progressReporter,
   type ReleaseInfo,
 } from '@shared/update';
 
@@ -296,5 +297,42 @@ describe('Atelier shortcuts', () => {
     expect(shortcutNeedsRepair({ ...good, icon: 'C:\\old\\icon.ico' }, EXE, ID)).toBe(true);
     expect(shortcutNeedsRepair({ ...good, iconIndex: 2 }, EXE, ID)).toBe(true);
     expect(shortcutNeedsRepair({ ...good, appUserModelId: undefined }, EXE, ID)).toBe(true);
+  });
+});
+
+describe('download progress', () => {
+  it('reports at most once per interval, and always the end', () => {
+    let now = 0;
+    const seen: (number | null)[] = [];
+    const p = progressReporter(
+      100,
+      (f) => seen.push(f),
+      () => now,
+      250,
+    );
+    p.add(10); // t=0: first report
+    now = 100;
+    p.add(10); // throttled
+    now = 300;
+    p.add(30);
+    p.done();
+    expect(seen).toEqual([0.1, 0.5, 1]);
+  });
+
+  it('reports null without a known size and never exceeds 1', () => {
+    const seen: (number | null)[] = [];
+    progressReporter(
+      0,
+      (f) => seen.push(f),
+      () => 0,
+    ).add(5);
+    const over: (number | null)[] = [];
+    progressReporter(
+      10,
+      (f) => over.push(f),
+      () => 0,
+    ).add(50);
+    expect(seen).toEqual([null]);
+    expect(over).toEqual([1]);
   });
 });

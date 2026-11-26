@@ -181,6 +181,19 @@ export const STRINGS = {
     'Dato de la última respuesta de Claude en Atelier ({0}).',
     'From the last Claude reply in Atelier ({0}).',
   ],
+  'status.downloading': ['Descargando {0}… {1}%', 'Downloading {0}… {1}%'],
+  'update.check': ['Buscar actualizaciones', 'Check for updates'],
+  'update.checking': ['Buscando actualizaciones…', 'Checking for updates…'],
+  'update.current': ['Atelier está al día ({0})', 'Atelier is up to date ({0})'],
+  'update.downloading': ['Descargando la versión {0}…', 'Downloading version {0}…'],
+  'update.error': [
+    'No se pudo buscar actualizaciones. Revisa la conexión e inténtalo de nuevo.',
+    "Couldn't check for updates. Check the connection and try again.",
+  ],
+  'update.unsupported': [
+    'Esta copia de Atelier no se actualiza sola',
+    "This copy of Atelier doesn't update itself",
+  ],
   'data.notPortable': [
     'No se puede escribir en la carpeta de Atelier.exe: los datos se guardan en {0}.',
     "Atelier.exe's folder can't be written: data is saved in {0}.",

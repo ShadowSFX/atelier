@@ -379,6 +379,7 @@ async function main(): Promise<void> {
   });
   handle('app:closing-ack', () => void (closeAcked = true));
   handle('app:ready-to-quit', (restart) => finishQuit(restart === true));
+  handle('update:check', () => updater.check());
 
   if (devUrl) await win.loadURL(devUrl);
   else await win.loadFile(join(__dirname, '../renderer/index.html'));

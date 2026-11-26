@@ -74,13 +74,26 @@ export interface StatsSnapshot {
 }
 
 /**
- * available: downloading; downloaded: installs on restart or quit; manual: a newer version exists but can't be
- * installed here (the exe's folder is read-only) — `url` is where to download it.
+ * checking: a check the user asked for is running; current: that check found nothing newer; available /
+ * downloading: a newer version is being downloaded (`progress` 0..1 when the size is known); downloaded: installs
+ * on restart or quit; manual: a newer version exists but can't be installed here (the exe's folder is read-only) —
+ * `url` is where to download it; error: the check the user asked for failed; unsupported: this copy doesn't
+ * update itself (development build, .deb install).
  */
 export interface UpdateStatus {
-  state: 'idle' | 'available' | 'downloaded' | 'manual' | 'error';
+  state:
+    | 'idle'
+    | 'checking'
+    | 'current'
+    | 'available'
+    | 'downloading'
+    | 'downloaded'
+    | 'manual'
+    | 'error'
+    | 'unsupported';
   version?: string;
   url?: string;
+  progress?: number;
 }
 
 export interface NotifyRequest {
@@ -153,6 +166,8 @@ export interface Invoke {
    * main may quit. `restart` relaunches Atelier with the update installed.
    */
   'app:ready-to-quit': (restart?: boolean) => void;
+  /** Checks for an update now (the answer arrives as 'update:status'). */
+  'update:check': () => void;
 }
 
 export interface Events {

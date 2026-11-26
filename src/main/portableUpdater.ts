@@ -12,7 +12,7 @@ import {
 import { rm } from 'node:fs/promises';
 import { basename, dirname, join } from 'node:path';
 import { promises as originalFs } from 'original-fs';
-import { Readable } from 'node:stream';
+import { Readable, Transform } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 import { promisify } from 'node:util';
 import type { ReadableStream as WebReadableStream } from 'node:stream/web';
@@ -32,6 +32,7 @@ import {
   parseChecksum,
   parseRelease,
   planUpdate,
+  progressReporter,
   RELEASES_API,
   RELEASES_URL,
   type UpdatePlan,
@@ -39,6 +40,10 @@ import {
 import { canWrite } from './dataDir';
 import { startHidden } from './hiddenProcess';
 import { log } from './log';
+
+/** GitHub API and checksum requests; the exe download has a stall watchdog instead. */
+const FETCH_TIMEOUT_MS = 15_000;
+const STALL_MS = 30_000;
 
 /**
  * Self-updater for the portable Windows exe (port of RDMan's UpdateService):
@@ -61,6 +66,8 @@ export class PortableUpdater {
   private busy = false;
   private etag: string | null = null;
   private ready: string | null = null;
+  /** Deleting the previous exe and an interrupted download (can retry for seconds while a file is still locked). */
+  private housekeeping: Promise<void> = Promise.resolve();
 
   constructor(
     exe: string,
@@ -75,16 +82,19 @@ export class PortableUpdater {
     this.old = `${exe}.old`;
   }
 
-  /** Startup housekeeping: the previous exe, interrupted downloads, and a staged file that isn't newer than us. */
-  async cleanup(): Promise<void> {
-    // The previous process may still be exiting for a moment after a restart.
-    await Promise.all(
+  /**
+   * Startup housekeeping: a staged file that isn't newer than us is dropped (quick, done before the first check), the
+   * previous exe and an interrupted download are deleted in the background — the previous process may still be
+   * exiting for a moment after a restart, and the check must not wait for that (a download waits for it instead).
+   */
+  cleanup(): void {
+    this.housekeeping = Promise.all(
       [this.old, this.download].map((f) =>
         rm(f, { force: true, maxRetries: 10, retryDelay: 200 }).catch((err: unknown) =>
           log.warn('update cleanup', err),
         ),
       ),
-    );
+    ).then(() => undefined);
     try {
       if (!existsSync(this.staged)) return;
       const version = existsSync(this.stagedVersion) ? readFileSync(this.stagedVersion, 'utf8').trim() : '';
@@ -101,21 +111,39 @@ export class PortableUpdater {
     }
   }
 
-  async check(): Promise<void> {
-    if (this.busy || this.ready) return;
+  /**
+   * `manual`: the user asked (Settings, palette): the answer is always reported (checking → current / error), and the
+   * ETag is skipped so GitHub gives a definite answer. Automatic checks stay silent unless there is an update.
+   */
+  async check(manual = false): Promise<void> {
+    if (this.ready) {
+      if (manual) this.onStatus({ state: 'downloaded', version: this.ready });
+      return;
+    }
+    if (this.busy) return;
     this.busy = true;
+    if (manual) this.onStatus({ state: 'checking' });
     try {
       const headers: Record<string, string> = {
         Accept: 'application/vnd.github+json',
         'User-Agent': `Atelier-Updater/${this.current}`,
       };
-      if (this.etag) headers['If-None-Match'] = this.etag;
-      const res = await net.fetch(RELEASES_API, { headers, cache: 'no-store' });
-      if (res.status === 304 || res.status === 404) return; // unchanged, or no release yet
+      if (this.etag && !manual) headers['If-None-Match'] = this.etag;
+      const res = await net.fetch(RELEASES_API, {
+        headers,
+        cache: 'no-store',
+        signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+      });
+      // Unchanged since the last check, or no release yet.
+      if (res.status === 304 || res.status === 404) {
+        if (manual) this.onStatus({ state: 'current', version: this.current });
+        return;
+      }
       if (!res.ok) throw new Error(`GitHub answered ${res.status}`);
       const plan = planUpdate(this.current, parseRelease(await res.text()), this.migrate);
       if (!plan) {
         this.etag = res.headers.get('etag');
+        if (manual) this.onStatus({ state: 'current', version: this.current });
         return;
       }
       if (!canWrite(this.dir)) {
@@ -127,33 +155,62 @@ export class PortableUpdater {
         });
         return;
       }
-      this.onStatus({ state: 'available', version: plan.release.version });
+      this.onStatus({ state: 'downloading', version: plan.release.version, progress: 0 });
       await this.fetchUpdate(plan);
     } catch (err) {
       log.warn('update check failed', err);
+      // A failed download must not leave "Downloading…" on screen; a silent check stays silent.
+      this.onStatus(manual ? { state: 'error' } : { state: 'idle' });
     } finally {
       this.busy = false;
     }
   }
 
   private async fetchUpdate(plan: UpdatePlan): Promise<void> {
-    const sumRes = await net.fetch(plan.checksum.url, { cache: 'no-store' });
+    const version = plan.release.version;
+    const sumRes = await net.fetch(plan.checksum.url, {
+      cache: 'no-store',
+      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+    });
     if (!sumRes.ok) throw new Error(`checksum download answered ${sumRes.status}`);
     const expected = parseChecksum(await sumRes.text());
     if (!expected) throw new Error('invalid checksum file');
 
-    const res = await net.fetch(plan.exe.url, { cache: 'no-store' });
-    if (!res.ok || !res.body) throw new Error(`download answered ${res.status}`);
+    // The download is long: no overall timeout, but a connection that stops sending for STALL_MS is dropped.
+    const abort = new AbortController();
+    let stall = setTimeout(() => abort.abort(new Error('download stalled')), STALL_MS);
+    const res = await net.fetch(plan.exe.url, { cache: 'no-store', signal: abort.signal });
+    if (!res.ok || !res.body) {
+      clearTimeout(stall);
+      throw new Error(`download answered ${res.status}`);
+    }
+    const total = Number(res.headers.get('content-length')) || plan.exe.size;
+    const progress = progressReporter(total, (fraction) =>
+      this.onStatus({ state: 'downloading', version, ...(fraction === null ? {} : { progress: fraction }) }),
+    );
+    const counter = new Transform({
+      transform(chunk: Buffer, _enc, done) {
+        clearTimeout(stall);
+        stall = setTimeout(() => abort.abort(new Error('download stalled')), STALL_MS);
+        progress.add(chunk.length);
+        done(null, chunk);
+      },
+    });
+    await this.housekeeping;
     try {
       await pipeline(
         Readable.fromWeb(res.body as WebReadableStream<Uint8Array>),
+        counter,
         createWriteStream(this.download),
       );
+      clearTimeout(stall);
+      progress.done();
       const actual = await sha256(this.download);
       if (actual !== expected) throw new Error(`SHA-256 mismatch (expected ${expected}, got ${actual})`);
       renameSync(this.download, this.staged);
       writeFileSync(this.stagedVersion, plan.release.version, 'utf8');
     } catch (err) {
+      clearTimeout(stall);
       rmSync(this.download, { force: true });
       throw err;
     }

@@ -130,3 +130,30 @@ export function parseChecksum(content: string): string | null {
     .find((s) => s.length > 0);
   return token && /^[0-9a-fA-F]{64}$/.test(token) ? token.toLowerCase() : null;
 }
+
+/**
+ * Download progress reports, at most one per `intervalMs` (plus the last one): `add(n)` counts received bytes and
+ * calls `emit` with the fraction (0..1), or with null when the total size is unknown.
+ */
+export function progressReporter(
+  total: number,
+  emit: (fraction: number | null) => void,
+  now: () => number = Date.now,
+  intervalMs = 250,
+): { add(bytes: number): void; done(): void } {
+  let received = 0;
+  let last = -Infinity;
+  const fraction = () => (total > 0 ? Math.min(1, received / total) : null);
+  return {
+    add(bytes) {
+      received += bytes;
+      const t = now();
+      if (t - last < intervalMs) return;
+      last = t;
+      emit(fraction());
+    },
+    done() {
+      emit(total > 0 ? 1 : null);
+    },
+  };
+}

@@ -190,4 +190,8 @@
   background: var(--bg-base);
   color: var(--fg-3);
   font-size: var(--fs-caption);
+  gap: 12px;
+}
+.footSpacer {
+  flex: 1;
 }

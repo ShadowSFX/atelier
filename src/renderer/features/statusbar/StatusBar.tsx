@@ -86,6 +86,14 @@ export function StatusBar() {
             <span className={s.value}>{bytes(term.memory)}</span>
           </span>
         )}
+        {(update.state === 'downloading' || update.state === 'available') && (
+          <span className={s.update} title={t('status.updateTip')}>
+            {update.progress === undefined
+              ? t('update.downloading', update.version ?? '')
+              : t('status.downloading', update.version ?? '', Math.floor(update.progress * 100))}
+          </span>
+        )}
+        {update.state === 'checking' && <span className={s.item}>{t('update.checking')}</span>}
         {update.state === 'downloaded' && (
           <span className={s.update} title={t('status.updateTip')}>
             {t('status.update', update.version ?? '')}

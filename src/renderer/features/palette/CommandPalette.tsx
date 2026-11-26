@@ -1,5 +1,6 @@
 import {
   Add16Regular,
+  ArrowSync16Regular,
   FolderAdd16Regular,
   Search16Regular,
   Settings16Regular,
@@ -9,7 +10,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { cx } from '../../components/Button';
 import { LAUNCHERS } from '@shared/launchers';
 import { shortPath } from '../../lib/format';
-import { useApp, useT } from '../../state/app';
+import { checkForUpdates, useApp, useT } from '../../state/app';
 import {
   activateProject,
   newTerminalInActive,
@@ -122,6 +123,17 @@ function Palette() {
         icon: <Settings16Regular />,
         run: () => useApp.setState({ settingsOpen: true }),
       },
+      ...(useApp.getState().update.state === 'unsupported'
+        ? []
+        : [
+            {
+              key: 'a:update',
+              title: t('update.check'),
+              kind: t('palette.action'),
+              icon: <ArrowSync16Regular />,
+              run: checkForUpdates,
+            },
+          ]),
     );
     for (const prof of useApp.getState().profiles) {
       out.push({

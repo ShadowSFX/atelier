@@ -3,7 +3,7 @@ import { useEffect, type ReactNode } from 'react';
 import { SCHEMES } from '@shared/schemes';
 import type { Settings } from '@shared/settings';
 import { Button, cx, IconButton } from '../../components/Button';
-import { saveSettings, useApp, useT } from '../../state/app';
+import { checkForUpdates, saveSettings, useApp, useT } from '../../state/app';
 import s from './Settings.module.css';
 
 function Row({
@@ -133,6 +133,7 @@ export function SettingsDialog() {
   const st = useApp((x) => x.settings);
   const profiles = useApp((x) => x.profiles);
   const version = useApp((x) => x.version);
+  const update = useApp((x) => x.update);
   const set = <K extends keyof Settings>(key: K, value: Settings[K]) => void saveSettings({ [key]: value });
   const close = () => useApp.setState({ settingsOpen: false });
 
@@ -453,6 +454,16 @@ export function SettingsDialog() {
         </div>
         <div className={s.foot}>
           <span>Atelier {version}</span>
+          {update.state !== 'unsupported' && (
+            <Button
+              variant="subtle"
+              disabled={update.state === 'checking' || update.state === 'downloading'}
+              onClick={checkForUpdates}
+            >
+              {update.state === 'checking' ? t('update.checking') : t('update.check')}
+            </Button>
+          )}
+          <span className={s.footSpacer} />
           <Button variant="primary" onClick={close}>
             {t('settings.done')}
           </Button>
