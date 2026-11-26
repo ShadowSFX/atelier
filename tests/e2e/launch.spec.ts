@@ -208,5 +208,20 @@ test('launcher menu, Claude restore after a crash, session picker', async () => 
     .poll(() => savedTerminal(shell!).claude, { timeout: 15_000 })
     .toEqual({ sessionId: NEW_SESSION, codeMode: true, active: true });
 
+  // The real statusLine script, fed Claude's rate_limits: the weekly usage shows centered in the status bar.
+  const statusScript = join(root, 'out', 'main', 'agent-status.js');
+  const resetsAt = Math.floor(Date.now() / 1000) + 3 * 86400;
+  await page.keyboard.type(
+    `'{"cwd":"C:\\\\nowhere","rate_limits":{"seven_day":{"used_percentage":41.2,"resets_at":${resetsAt}},` +
+      `"five_hour":{"used_percentage":12,"resets_at":${resetsAt - 2 * 86400}}}}' | ` +
+      `& '${electronExe}' '${statusScript}'`,
+    { delay: 1 },
+  );
+  await page.keyboard.press('Enter');
+  const meter = page.locator('footer [role="meter"]');
+  await expect(meter).toHaveAttribute('aria-valuenow', '41', { timeout: 15_000 });
+  await expect(meter).toContainText('41%');
+  await expect(meter).toHaveAttribute('title', /12%/);
+
   await crash(app);
 });

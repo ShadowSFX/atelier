@@ -86,11 +86,12 @@ export class HubClient {
   }
 }
 
-/** Sends one message and closes (hooks). Never throws; resolves when written or after the timeout. */
+/** Sends one message and closes (hooks, statusLine). Never throws; resolves when written or after the timeout. */
 export function sendOnce(
   env: { path: string; token: string },
   msg: ClientMessage,
   timeoutMs = 1500,
+  role: HubRole = 'hook',
 ): Promise<void> {
   return new Promise((resolve) => {
     const done = () => {
@@ -101,7 +102,7 @@ export function sendOnce(
     const timer = setTimeout(done, timeoutMs);
     const s = connect(env.path);
     s.once('connect', () => {
-      const hello: ClientMessage = { t: 'hello', token: env.token, role: 'hook' };
+      const hello: ClientMessage = { t: 'hello', token: env.token, role };
       s.end(JSON.stringify(hello) + '\n' + JSON.stringify(msg) + '\n', done);
     });
     s.once('error', done);

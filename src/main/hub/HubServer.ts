@@ -12,6 +12,7 @@ import {
   type HubRequest,
   type HubResponse,
 } from '@shared/hub';
+import { parseRateLimits, type ClaudeUsage } from '@shared/usage';
 import { isSessionId } from '@shared/workspace';
 import { log } from '../log';
 import type { Delivery } from './Delivery';
@@ -29,6 +30,8 @@ export interface HubDeps {
   setTitle(terminalId: string, title: string): string;
   /** A Claude session started in a terminal (new, resumed, cleared or forked): its id, to resume it later. */
   onSession?(terminalId: string, session: { sessionId: string; codeMode: boolean }): void;
+  /** A Claude session reported the plan's usage limits (statusLine), already validated. */
+  onUsage?(usage: ClaudeUsage): void;
 }
 
 function pipePath(): string {
@@ -126,6 +129,12 @@ export class HubServer {
               codeMode: msg.codeMode === true,
             });
           }
+          return;
+        }
+        if (msg.t === 'usage') {
+          // Validated here: the client's numbers are never trusted as they come.
+          const usage = parseRateLimits(msg.rateLimits, Date.now());
+          if (usage) this.deps.onUsage?.(usage);
           return;
         }
         if (msg.t === 'req') {

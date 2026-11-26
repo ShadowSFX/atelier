@@ -166,6 +166,21 @@ export const STRINGS = {
     "Atelier's folder is read-only: download the new version from GitHub and replace Atelier.exe.",
   ],
   'status.download': ['Descargar', 'Download'],
+  'usage.weekly': ['Semanal', 'Weekly'],
+  'usage.resets': ['se reinicia {0}', 'resets {0}'],
+  'usage.aria': ['Uso semanal de Claude: {0}%', 'Claude weekly usage: {0}%'],
+  'usage.tipWeekly': [
+    'Límite semanal de Claude: {0}% usado. Se reinicia el {1}.',
+    'Claude weekly limit: {0}% used. Resets {1}.',
+  ],
+  'usage.tipFiveHour': [
+    'Ventana de 5 horas: {0}% usado. Se reinicia el {1}.',
+    '5-hour window: {0}% used. Resets {1}.',
+  ],
+  'usage.tipUpdated': [
+    'Dato de la última respuesta de Claude en Atelier ({0}).',
+    'From the last Claude reply in Atelier ({0}).',
+  ],
   'data.notPortable': [
     'No se puede escribir en la carpeta de Atelier.exe: los datos se guardan en {0}.',
     "Atelier.exe's folder can't be written: data is saved in {0}.",
@@ -238,6 +253,15 @@ export const STRINGS = {
   'settings.claudeHubHint': [
     'Al ejecutar claude en una terminal de Atelier, la sesión puede ver y escribir solo a las demás sesiones de su proyecto (herramientas atelier_*). Las herramientas globales de Claude Code se desactivan dentro de Atelier. Se aplica a las terminales nuevas.',
     "When you run claude in an Atelier terminal, the session can see and message only the other sessions of its project (atelier_* tools). Claude Code's machine-wide messaging tools are turned off inside Atelier. Applies to new terminals.",
+  ],
+  'settings.claudeUsage': ['Uso semanal en la barra de estado', 'Weekly usage in the status bar'],
+  'settings.claudeUsageHint': [
+    'Muestra cuánto llevas usado del límite semanal de tu plan de Claude. Se actualiza tras cada respuesta de Claude en Atelier; con una clave de API no hay límite que mostrar.',
+    'Shows how much of your Claude plan’s weekly limit you’ve used. It updates after each Claude reply in Atelier; with an API key there is no limit to show.',
+  ],
+  'settings.claudeUsageNeedsHub': [
+    'Requiere la comunicación entre sesiones (arriba)',
+    'Needs messaging between sessions (above)',
   ],
   'settings.notifications': ['Notificaciones', 'Notifications'],
   'settings.notify': ['Notificaciones de escritorio', 'Desktop notifications'],

@@ -16,6 +16,7 @@ export default defineConfig({
           // Run by Claude Code with ELECTRON_RUN_AS_NODE=1 (Atelier's own executable acts as node).
           'agent-mcp': resolve(__dirname, 'src/agent/mcp.ts'),
           'agent-hook': resolve(__dirname, 'src/agent/hook.ts'),
+          'agent-status': resolve(__dirname, 'src/agent/statusLine.ts'),
         },
       },
     },

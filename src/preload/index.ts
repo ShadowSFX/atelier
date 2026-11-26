@@ -13,6 +13,7 @@ const EVENTS = new Set<keyof Events>([
   'notify:activate',
   'terminal:set-title',
   'claude:session',
+  'claude:usage',
 ]);
 
 const api: AtelierApi = {

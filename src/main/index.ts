@@ -8,10 +8,12 @@ import type { BrowserWindow } from 'electron';
 import { app, dialog, MessageChannelMain, nativeTheme, shell } from 'electron';
 import { QUIT_KILL_WAIT_MS } from '@shared/constants';
 import { parseSettings, type Settings } from '@shared/settings';
+import { liveUsage, type ClaudeUsage } from '@shared/usage';
 import { isSessionId, parseWorkspace, type Workspace } from '@shared/workspace';
 import { writeClaudeFiles, type ClaudeFiles } from './claude/integration';
 import { claudeRunner, createResumePreparer } from './claude/background';
 import { listClaudeSessions } from './claude/sessions';
+import { UsageService } from './claude/usage';
 import { ClipboardService } from './clipboard';
 import { Delivery } from './hub/Delivery';
 import { HubServer } from './hub/HubServer';
@@ -92,6 +94,10 @@ async function main(): Promise<void> {
   const settings = new JsonStore<Settings>(join(userData, 'settings.json'), parseSettings);
   const workspace = new JsonStore<Workspace>(join(userData, 'workspace.json'), parseWorkspace);
   const snapshots = new SnapshotStore(join(userData, 'snapshots'));
+  const usageStore = new JsonStore<ClaudeUsage | null>(join(userData, 'claude-usage.json'), (raw) =>
+    liveUsage(raw, Date.now()),
+  );
+  const usage = new UsageService(usageStore, (u) => send(win, 'claude:usage', u));
   const clipboard = new ClipboardService(join(userData, 'pastes'));
   clipboard.cleanup();
   nativeTheme.themeSource = settings.get().theme;
@@ -106,6 +112,7 @@ async function main(): Promise<void> {
       exec: process.execPath,
       hookScript: join(app.getAppPath(), 'out', 'main', 'agent-hook.js'),
       mcpScript: join(app.getAppPath(), 'out', 'main', 'agent-mcp.js'),
+      statusScript: join(app.getAppPath(), 'out', 'main', 'agent-status.js'),
     });
   } catch (err) {
     log.error('claude integration files', err);
@@ -157,6 +164,7 @@ async function main(): Promise<void> {
     },
     // The renderer owns the workspace: it records the session so the terminal resumes it after a restart.
     onSession: (terminalId, session) => !quitting && send(win, 'claude:session', terminalId, session),
+    onUsage: (u) => usage.update(u),
   });
   let hubReady = false;
   try {
@@ -270,6 +278,8 @@ async function main(): Promise<void> {
     quitting = true;
     settings.flushPending();
     workspace.flushPending();
+    usage.flushPending();
+    usage.stop();
     killAll();
     hub.stop();
     notifier.closeAll();
@@ -350,6 +360,7 @@ async function main(): Promise<void> {
   handle('claude:shell-prompt', (id) => delivery.shellPrompt(id));
   handle('claude:seen', (id) => delivery.seen(id));
   handle('claude:available', () => !!(claudeExe === undefined ? (claudeExe = which('claude')) : claudeExe));
+  handle('claude:usage', () => usage.current());
   handle('claude:sessions', (projectPath) =>
     typeof projectPath === 'string' && projectPath ? listClaudeSessions(projectPath) : [],
   );

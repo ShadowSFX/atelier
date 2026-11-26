@@ -1,5 +1,7 @@
+/* Three zones: the middle one (weekly usage) stays centered on the window; the sides clip instead of pushing it. */
 .bar {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: center;
   gap: 16px;
   height: var(--h-statusbar);
@@ -9,6 +11,17 @@
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
   overflow: hidden;
+}
+.left,
+.right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-width: 0;
+  overflow: hidden;
+}
+.right {
+  justify-content: flex-end;
 }
 .item {
   display: inline-flex;
@@ -21,6 +34,49 @@
 .value {
   color: var(--fg-2);
 }
+.usage {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.meter {
+  position: relative;
+  width: 72px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--bg-selected-inactive);
+  overflow: hidden;
+}
+.meterFill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: 2px;
+  background: var(--accent);
+  transition: width 0.4s ease;
+}
+.fillWarn {
+  background: var(--warn);
+}
+.fillDanger {
+  background: var(--danger);
+}
+.usagePct {
+  color: var(--fg-1);
+  font-weight: 600;
+}
+.usageReset {
+  color: var(--fg-3);
+}
+@media (max-width: 900px) {
+  .usageReset {
+    display: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .meterFill {
+    transition: none;
+  }
+}
 .warn {
   color: var(--warn);
 }
@@ -29,9 +85,6 @@
 }
 .spark {
   display: block;
-}
-.spacer {
-  flex: 1;
 }
 .claude {
   color: var(--accent-text);

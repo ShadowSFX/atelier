@@ -352,6 +352,16 @@ export function SettingsDialog() {
               onChange={(v) => set('claudeHub', v)}
             />
           </Row>
+          <Row
+            label={t('settings.claudeUsage')}
+            hint={st.claudeHub ? t('settings.claudeUsageHint') : t('settings.claudeUsageNeedsHub')}
+          >
+            <Switch
+              label={t('settings.claudeUsage')}
+              value={st.showClaudeUsage}
+              onChange={(v) => set('showClaudeUsage', v)}
+            />
+          </Row>
 
           <div className={s.section}>{t('settings.notifications')}</div>
           <Row label={t('settings.notify')} hint={t('settings.notifyHint')}>

@@ -45,6 +45,8 @@ export const SettingsSchema = z.object({
   powerlinePrompt: bool(true),
   /** Make `claude` inside Atelier use the project-scoped hub. */
   claudeHub: bool(true),
+  /** Show the Claude plan's weekly usage in the status bar (reported by sessions in Atelier through the hub). */
+  showClaudeUsage: bool(true),
   sidebarWidth: num(272, 200, 480).transform(Math.round),
   confirmCloseRunning: bool(true),
   /** Desktop notifications: master switch, then one switch per event. */

@@ -7,7 +7,7 @@
 import { HUB_MAX_TITLE } from './constants';
 import type { ClaudeState } from './ipc';
 
-export type HubRole = 'mcp' | 'hook';
+export type HubRole = 'mcp' | 'hook' | 'status';
 
 export interface Hello {
   t: 'hello';
@@ -33,6 +33,15 @@ export interface HookMessage {
   source?: string;
   /** SessionStart: the session runs with CLAUDE_CODE_EXPERIMENTAL_CODE_MODE=1. */
   codeMode?: boolean;
+}
+
+/**
+ * Sent by Atelier's statusLine script: Claude Code's `rate_limits` object as received. The hub parses and validates
+ * it (`parseRateLimits`); plan usage is the account's, not the project's.
+ */
+export interface UsageMessage {
+  t: 'usage';
+  rateLimits: unknown;
 }
 
 export interface PeerInfo {
@@ -62,7 +71,7 @@ export type HubRequest =
 export type HubResponse =
   { t: 'res'; id: number; ok: true; result: unknown } | { t: 'res'; id: number; ok: false; error: string };
 
-export type ClientMessage = Hello | HookMessage | HubRequest;
+export type ClientMessage = Hello | HookMessage | UsageMessage | HubRequest;
 
 /** Result of `send`, one entry per recipient. */
 export interface SendReport {

@@ -2,6 +2,7 @@ import type { ClaudeSessionInfo } from './launchers';
 import type { NotifyKind } from './notify';
 import type { Settings, SettingsPatch } from './settings';
 import type { Profile, ShellKind } from './shell';
+import type { ClaudeUsage } from './usage';
 import type { Workspace } from './workspace';
 
 /**
@@ -133,6 +134,8 @@ export interface Invoke {
   'claude:seen': (terminalId: string) => void;
   /** Claude Code is on the PATH of Atelier's process (the + menu's Claude entries). */
   'claude:available': () => boolean;
+  /** The Claude plan's usage limits last reported by a session in Atelier (null: none, or they reset). */
+  'claude:usage': () => ClaudeUsage | null;
   /** Resumable Claude sessions whose folder is the project's or one inside it, newest first. */
   'claude:sessions': (projectPath: string) => ClaudeSessionInfo[];
   /**
@@ -167,6 +170,8 @@ export interface Events {
   'terminal:set-title': (terminalId: string, title: string) => void;
   /** A Claude session started in a terminal: remember it so the terminal resumes it after a restart. */
   'claude:session': (terminalId: string, session: { sessionId: string; codeMode: boolean }) => void;
+  /** The Claude plan's usage limits changed (a new report, or a window reset). */
+  'claude:usage': (u: ClaudeUsage | null) => void;
 }
 
 /** Messages on the PTY MessagePort. */

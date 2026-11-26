@@ -1,15 +1,15 @@
 import { Sparkle12Filled } from '@fluentui/react-icons';
 import { cx } from '../../components/Button';
 import { api } from '../../lib/api';
-import { bytes, percent } from '../../lib/format';
+import { bytes, levelOf, percent } from '../../lib/format';
 import { useApp, useT } from '../../state/app';
 import { closeApp } from '../../state/quit';
 import { useRuntime } from '../../state/runtime';
 import { activeProject, focusedTerminalId, useWorkspace } from '../../state/workspace';
 import s from './StatusBar.module.css';
+import { WeeklyUsage } from './WeeklyUsage';
 
-/** Levels from RDMan's server stats: warn at 85%, danger at 95%. */
-const level = (f: number) => (f >= 0.95 ? s.danger : f >= 0.85 ? s.warn : s.value);
+const level = (f: number) => ({ danger: s.danger, warn: s.warn, ok: s.value })[levelOf(f)];
 
 function Sparkline({ values }: { values: number[] }) {
   const w = 48;
@@ -39,70 +39,74 @@ export function StatusBar() {
 
   return (
     <footer className={s.bar}>
-      {stats && (
-        <>
-          <span className={s.item} title={t('status.cpuTip')}>
-            <span className={s.label}>{t('status.cpu')}</span>
-            <Sparkline values={history} />
-            <span className={level(stats.cpu)}>{percent(stats.cpu)}</span>
-          </span>
-          <span className={s.item} title={t('status.ramTip', bytes(stats.memUsed), bytes(stats.memTotal))}>
-            <span className={s.label}>{t('status.ram')}</span>
-            <span className={level(stats.memUsed / stats.memTotal)}>
-              {bytes(stats.memUsed)} / {bytes(stats.memTotal)}
+      <div className={s.left}>
+        {stats && (
+          <>
+            <span className={s.item} title={t('status.cpuTip')}>
+              <span className={s.label}>{t('status.cpu')}</span>
+              <Sparkline values={history} />
+              <span className={level(stats.cpu)}>{percent(stats.cpu)}</span>
             </span>
-          </span>
-          {stats.disk && stats.disk.total > 0 && (
-            <span
-              className={s.item}
-              title={t('status.diskTip', bytes(stats.disk.used), bytes(stats.disk.total))}
-            >
-              <span className={s.label}>{t('status.disk')}</span>
-              <span className={level(stats.disk.used / stats.disk.total)}>
-                {percent(stats.disk.used / stats.disk.total)}
+            <span className={s.item} title={t('status.ramTip', bytes(stats.memUsed), bytes(stats.memTotal))}>
+              <span className={s.label}>{t('status.ram')}</span>
+              <span className={level(stats.memUsed / stats.memTotal)}>
+                {bytes(stats.memUsed)} / {bytes(stats.memTotal)}
               </span>
             </span>
-          )}
-          <span className={s.item} title={t('status.appTip')}>
-            <span className={s.label}>{t('status.app')}</span>
-            <span className={s.value}>{bytes(stats.appMemory)}</span>
+            {stats.disk && stats.disk.total > 0 && (
+              <span
+                className={s.item}
+                title={t('status.diskTip', bytes(stats.disk.used), bytes(stats.disk.total))}
+              >
+                <span className={s.label}>{t('status.disk')}</span>
+                <span className={level(stats.disk.used / stats.disk.total)}>
+                  {percent(stats.disk.used / stats.disk.total)}
+                </span>
+              </span>
+            )}
+            <span className={s.item} title={t('status.appTip')}>
+              <span className={s.label}>{t('status.app')}</span>
+              <span className={s.value}>{bytes(stats.appMemory)}</span>
+            </span>
+          </>
+        )}
+      </div>
+      <WeeklyUsage />
+      <div className={s.right}>
+        {claudeCount > 0 && (
+          <span className={cx(s.item, s.claude)}>
+            <Sparkle12Filled />
+            {t('claude.sessions', claudeCount)}
           </span>
-        </>
-      )}
-      <span className={s.spacer} />
-      {claudeCount > 0 && (
-        <span className={cx(s.item, s.claude)}>
-          <Sparkle12Filled />
-          {t('claude.sessions', claudeCount)}
-        </span>
-      )}
-      {term && focusedName && (
-        <span className={s.item} title={t('status.termTip')}>
-          <span className={s.label}>{term.foreground ?? focusedName}</span>
-          <span className={s.value}>{percent(term.cpu)}</span>
-          <span className={s.value}>{bytes(term.memory)}</span>
-        </span>
-      )}
-      {update.state === 'downloaded' && (
-        <span className={s.update} title={t('status.updateTip')}>
-          {t('status.update', update.version ?? '')}
-          <button type="button" className={s.updateBtn} onClick={() => void closeApp(true)}>
-            {t('status.restart')}
-          </button>
-        </span>
-      )}
-      {update.state === 'manual' && update.url && (
-        <span className={s.update} title={t('status.updateManualTip')}>
-          {t('status.updateAvailable', update.version ?? '')}
-          <button
-            type="button"
-            className={s.updateBtn}
-            onClick={() => void api.invoke('shell:open-external', update.url!)}
-          >
-            {t('status.download')}
-          </button>
-        </span>
-      )}
+        )}
+        {term && focusedName && (
+          <span className={s.item} title={t('status.termTip')}>
+            <span className={s.label}>{term.foreground ?? focusedName}</span>
+            <span className={s.value}>{percent(term.cpu)}</span>
+            <span className={s.value}>{bytes(term.memory)}</span>
+          </span>
+        )}
+        {update.state === 'downloaded' && (
+          <span className={s.update} title={t('status.updateTip')}>
+            {t('status.update', update.version ?? '')}
+            <button type="button" className={s.updateBtn} onClick={() => void closeApp(true)}>
+              {t('status.restart')}
+            </button>
+          </span>
+        )}
+        {update.state === 'manual' && update.url && (
+          <span className={s.update} title={t('status.updateManualTip')}>
+            {t('status.updateAvailable', update.version ?? '')}
+            <button
+              type="button"
+              className={s.updateBtn}
+              onClick={() => void api.invoke('shell:open-external', update.url!)}
+            >
+              {t('status.download')}
+            </button>
+          </span>
+        )}
+      </div>
     </footer>
   );
 }

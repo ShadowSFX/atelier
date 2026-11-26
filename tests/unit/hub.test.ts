@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import type { PeerInfo, SendReport } from '@shared/hub';
+import type { ClaudeUsage } from '@shared/usage';
 
 vi.mock('../../src/main/log', () => ({
   log: { warn: () => undefined, error: () => undefined, info: () => undefined },
@@ -23,7 +24,9 @@ const hub = new HubServer({
   readOutput: async (id, lines) => `${id}:${lines}`,
   setTitle: (id, title) => (titles.push({ id, title }), 'ok'),
   onSession: (id, session) => sessions.push({ id, ...session }),
+  onUsage: (u) => usages.push(u),
 });
+const usages: ClaudeUsage[] = [];
 const sessions: { id: string; sessionId: string; codeMode: boolean }[] = [];
 const tokens: Record<string, string> = {};
 
@@ -97,6 +100,28 @@ describe('HubServer (real pipe)', () => {
       { t: 'hook', event: 'PreToolUse', tool: 'AskUserQuestion', at: Date.now() },
     );
     await expect.poll(() => delivery.claudeState('a2')).toBe('waiting');
+  });
+
+  it('passes on validated plan usage from a statusLine report', async () => {
+    const env = { path: hub.path, token: tokens.a2! };
+    const soon = Math.floor(Date.now() / 1000) + 3 * 86400;
+    await sendOnce(
+      env,
+      { t: 'usage', rateLimits: { seven_day: { used_percentage: 41.2, resets_at: soon } } },
+      1500,
+      'status',
+    );
+    // Garbage, an expired window, and an unknown token: ignored.
+    await sendOnce(env, { t: 'usage', rateLimits: { seven_day: { used_percentage: 'x', resets_at: soon } } });
+    await sendOnce(env, { t: 'usage', rateLimits: { seven_day: { used_percentage: 5, resets_at: 1000 } } });
+    await sendOnce(
+      { path: hub.path, token: 'nope' },
+      { t: 'usage', rateLimits: { seven_day: { used_percentage: 9, resets_at: soon } } },
+    );
+    await new Promise((r) => setTimeout(r, 50));
+    expect(usages).toHaveLength(1);
+    expect(usages[0]!.sevenDay).toEqual({ usedPercentage: 41.2, resetsAt: soon * 1000 });
+    expect(usages[0]!.fiveHour).toBeNull();
   });
 
   it('refuses unknown and revoked tokens', async () => {

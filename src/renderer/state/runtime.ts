@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import type { ClaudeStatus, StatsSnapshot, TerminalStats } from '@shared/ipc';
 import type { ShellKind } from '@shared/shell';
+import type { ClaudeUsage } from '@shared/usage';
 import { api } from '../lib/api';
 
 /** Live state of a terminal (not persisted). */
@@ -28,6 +29,8 @@ interface RuntimeState {
   stats: StatsSnapshot | null;
   cpuHistory: number[];
   byTerminal: Record<string, TerminalStats>;
+  /** The Claude plan's usage limits (status bar), null until a session in Atelier reports them. */
+  usage: ClaudeUsage | null;
 }
 
 export const useRuntime = create<RuntimeState>(() => ({
@@ -36,6 +39,7 @@ export const useRuntime = create<RuntimeState>(() => ({
   stats: null,
   cpuHistory: [],
   byTerminal: {},
+  usage: null,
 }));
 
 const EMPTY: TerminalRuntime = { status: 'idle', activity: false };
@@ -77,5 +81,15 @@ export function initRuntimeEvents(): void {
       cpuHistory: [...s.cpuHistory.slice(-29), stats.cpu],
       byTerminal: Object.fromEntries(stats.terminals.map((t) => [t.terminalId, t])),
     })),
+  );
+  // Subscribed first, then asked: a report arriving in between is never overwritten by an older answer.
+  let reported = false;
+  api.on('claude:usage', (usage) => {
+    reported = true;
+    useRuntime.setState({ usage });
+  });
+  void api.invoke('claude:usage').then(
+    (usage) => !reported && useRuntime.setState({ usage }),
+    () => undefined,
   );
 }

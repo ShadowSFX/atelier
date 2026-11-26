@@ -7,6 +7,7 @@
 import type { HookEvent } from '@shared/hub';
 import { CODE_MODE_ENV } from '@shared/constants';
 import { hubEnv, sendOnce } from './hubClient';
+import { print, readStdin } from './io';
 
 const startedAt = Date.now();
 const EVENTS = new Set<HookEvent>([
@@ -24,31 +25,6 @@ const SESSION_CONTEXT =
   'Whenever you start a plan or a new piece of work (not a follow-up on the current one), call the ' +
   'atelier_set_title tool with a short title for it: 2-5 words, in the language the user writes in. If it ' +
   'answers that the user named the terminal by hand, leave the title alone.';
-
-function readStdin(timeoutMs: number): Promise<string> {
-  return new Promise((resolve) => {
-    let data = '';
-    const timer = setTimeout(() => resolve(data), timeoutMs);
-    process.stdin.setEncoding('utf8');
-    process.stdin.on('data', (c: string) => (data += c));
-    process.stdin.on('end', () => {
-      clearTimeout(timer);
-      resolve(data);
-    });
-    process.stdin.on('error', () => resolve(data));
-  });
-}
-
-/** Writes to stdout and waits until it is flushed (pipe writes can still be pending when the process exits). */
-function print(text: string): Promise<void> {
-  return new Promise((resolve) => {
-    try {
-      process.stdout.write(text, () => resolve());
-    } catch {
-      resolve();
-    }
-  });
-}
 
 async function main(): Promise<void> {
   const env = hubEnv();

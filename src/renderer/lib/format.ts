@@ -14,6 +14,11 @@ export function percent(fraction: number): string {
   return `${Math.round(fraction * 100)}%`;
 }
 
+/** Status bar levels, from RDMan's server stats: warn at 85%, danger at 95%. */
+export function levelOf(fraction: number): 'danger' | 'warn' | 'ok' {
+  return fraction >= 0.95 ? 'danger' : fraction >= 0.85 ? 'warn' : 'ok';
+}
+
 /** Shortens a directory for a one-line caption: home → ~, long paths keep the last segments. */
 export function shortPath(path: string, home?: string): string {
   let p = path;
