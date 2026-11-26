@@ -116,6 +116,18 @@ export function psQuote(s: string): string {
   return `'${s.replace(/['\u2018\u2019\u201A\u201B]/g, (q) => q + q)}'`;
 }
 
+/**
+ * A Windows command line (CreateProcess) that the MSVC runtime splits back into `args`: an argument with spaces, tabs
+ * or quotes (or an empty one) is quoted, and backslashes are doubled only before a quote or the closing quote.
+ */
+export function windowsCommandLine(args: string[]): string {
+  return args
+    .map((a) =>
+      a !== '' && !/[\s"]/.test(a) ? a : `"${a.replace(/(\\*)"/g, '$1$1\\"').replace(/(\\+)$/, '$1$1')}"`,
+    )
+    .join(' ');
+}
+
 export function posixQuote(s: string): string {
   return SAFE_POSIX.test(s) ? s : `'${s.replace(/'/g, `'\\''`)}'`;
 }

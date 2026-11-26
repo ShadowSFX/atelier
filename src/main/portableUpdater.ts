@@ -36,6 +36,7 @@ import {
   type UpdatePlan,
 } from '@shared/update';
 import { canWrite } from './dataDir';
+import { startHidden } from './hiddenProcess';
 import { log } from './log';
 
 /**
@@ -204,32 +205,25 @@ export class PortableUpdater {
       'v1.0',
       'powershell.exe',
     );
-    // spawn reports a missing exe only later, through 'error': check now so the caller can fall back.
-    if (!existsSync(powershell)) {
-      log.error(`update helper: ${powershell} not found`);
+    // Not child_process.spawn: see startHidden.
+    const pid = startHidden(
+      powershell,
+      [
+        '-NoProfile',
+        '-NonInteractive',
+        '-EncodedCommand',
+        Buffer.from(swapScript(plan), 'utf16le').toString('base64'),
+      ],
+      this.dir,
+    );
+    if (pid === null) {
+      log.error(`could not start the update helper (${powershell})`);
       return false;
     }
-    try {
-      const child = spawn(
-        powershell,
-        [
-          '-NoProfile',
-          '-NonInteractive',
-          '-WindowStyle',
-          'Hidden',
-          '-EncodedCommand',
-          Buffer.from(swapScript(plan), 'utf16le').toString('base64'),
-        ],
-        { cwd: this.dir, detached: true, stdio: 'ignore', windowsHide: true },
-      );
-      child.on('error', (err) => log.error('update helper failed', err));
-      child.unref();
-      log.info(swap ? `update ${this.ready ?? '?'} handed to the helper` : 'relaunch handed to the helper');
-      return true;
-    } catch (err) {
-      log.error('could not start the update helper', err);
-      return false;
-    }
+    log.info(
+      `${swap ? `update ${this.ready ?? '?'}` : 'relaunch'} handed to the helper (pid ${pid}, waiting for ${plan.waitPid ?? 'nothing'})`,
+    );
+    return true;
   }
 
   private swap(): boolean {

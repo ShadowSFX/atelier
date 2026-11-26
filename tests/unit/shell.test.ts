@@ -8,7 +8,22 @@ import {
   shellPathToNative,
   toGitBashPath,
   toWslPath,
+  windowsCommandLine,
 } from '@shared/shell';
+
+describe('windowsCommandLine', () => {
+  it('quotes only what needs it, following the MSVC argv rules', () => {
+    expect(windowsCommandLine(['C:\\Program Files\\x.exe', '-NoProfile', 'abc+/='])).toBe(
+      '"C:\\Program Files\\x.exe" -NoProfile abc+/=',
+    );
+    expect(windowsCommandLine(['a', ''])).toBe('a ""');
+    expect(windowsCommandLine(['say "hi"'])).toBe('"say \\"hi\\""');
+    // Backslashes are literal unless they precede a quote (or the closing quote).
+    expect(windowsCommandLine(['C:\\a b\\'])).toBe('"C:\\a b\\\\"');
+    expect(windowsCommandLine(['x\\"y z'])).toBe('"x\\\\\\"y z"');
+    expect(windowsCommandLine(['C:\\plain\\path'])).toBe('C:\\plain\\path');
+  });
+});
 
 describe('path conversion', () => {
   it('converts Windows paths to Git Bash form', () => {
