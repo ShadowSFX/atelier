@@ -105,7 +105,11 @@ export function parseRelease(json: string): ReleaseInfo | null {
  * The update to install, or null (draft, prerelease, not newer, or a missing asset). `allowSame` also takes the
  * current version: an installed copy (old NSIS setup) replaces itself with the portable exe of its own version.
  */
-export function planUpdate(current: string, release: ReleaseInfo | null, allowSame = false): UpdatePlan | null {
+export function planUpdate(
+  current: string,
+  release: ReleaseInfo | null,
+  allowSame = false,
+): UpdatePlan | null {
   if (!release || release.draft || release.prerelease) return null;
   if (parseVersion(release.version)?.pre) return null;
   if (!parseVersion(current)) return null;

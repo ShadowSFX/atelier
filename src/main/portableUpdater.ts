@@ -227,7 +227,10 @@ async function forgetInstall(uninstaller: string): Promise<boolean> {
   const reg = (...args: string[]) => promisify(execFile)('reg', args, { windowsHide: true });
   let uninstall: string | null;
   try {
-    uninstall = regValue((await reg('query', NSIS_UNINSTALL_KEY, '/v', 'UninstallString')).stdout, 'UninstallString');
+    uninstall = regValue(
+      (await reg('query', NSIS_UNINSTALL_KEY, '/v', 'UninstallString')).stdout,
+      'UninstallString',
+    );
   } catch {
     return true; // no such key
   }
