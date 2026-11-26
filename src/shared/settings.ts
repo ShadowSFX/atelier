@@ -49,8 +49,12 @@ export const SettingsSchema = z.object({
   confirmCloseRunning: bool(true),
   /** Desktop notifications: master switch, then one switch per event. */
   notifications: bool(true),
-  /** Claude needs an answer (permission prompt, question, plan approval). */
-  notifyWaiting: bool(true),
+  /** Play the system's notification sound. */
+  notifySound: bool(true),
+  /** Claude asks for permission to use a tool. */
+  notifyPermission: bool(true),
+  /** Claude asks a question, for plan approval, or an MCP server shows a form. */
+  notifyQuestion: bool(true),
   notifyClaudeDone: bool(true),
   notifyLongCommand: bool(true),
   /** A command must run at least this long (seconds) to notify when it ends. */
@@ -62,7 +66,12 @@ export type Settings = z.infer<typeof SettingsSchema>;
 export type SettingsPatch = Partial<Settings>;
 
 export function parseSettings(raw: unknown): Settings {
-  const obj = raw && typeof raw === 'object' ? raw : {};
+  const obj: Record<string, unknown> = raw && typeof raw === 'object' ? { ...raw } : {};
+  // Older files have one switch (notifyWaiting) for permissions and questions: both keep the user's choice.
+  if (typeof obj.notifyWaiting === 'boolean') {
+    obj.notifyPermission ??= obj.notifyWaiting;
+    obj.notifyQuestion ??= obj.notifyWaiting;
+  }
   return SettingsSchema.parse(obj);
 }
 

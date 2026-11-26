@@ -54,7 +54,11 @@ export class Notifier {
   private readonly live = new Map<string, Notification>();
   private icon: NativeImage | undefined;
 
-  constructor(private readonly window: () => BrowserWindow | null) {}
+  constructor(
+    private readonly window: () => BrowserWindow | null,
+    /** The user turned the notification sound off. */
+    private readonly silent: () => boolean = () => false,
+  ) {}
 
   show(raw: NotifyRequest): boolean {
     if (!raw || typeof raw !== 'object') return false;
@@ -79,7 +83,7 @@ export class Notifier {
         process.platform === 'linux'
           ? escapeMarkup(clip(body, NOTIFY_MAX_BODY))
           : clip(body, NOTIFY_MAX_BODY),
-      silent: false,
+      silent: this.silent(),
       ...(this.icon.isEmpty() ? {} : { icon: this.icon }),
     });
     const drop = () => {

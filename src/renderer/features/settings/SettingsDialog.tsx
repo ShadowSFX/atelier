@@ -362,15 +362,39 @@ export function SettingsDialog() {
             />
           </Row>
           <Row
-            label={t('settings.notifyWaiting')}
-            hint={st.claudeHub ? t('settings.notifyWaitingHint') : t('settings.notifyNeedsHub')}
+            label={t('settings.notifySound')}
+            hint={t('settings.notifySoundHint')}
             disabled={!st.notifications}
           >
             <Switch
-              label={t('settings.notifyWaiting')}
-              value={st.notifyWaiting}
+              label={t('settings.notifySound')}
+              value={st.notifySound}
               disabled={!st.notifications}
-              onChange={(v) => set('notifyWaiting', v)}
+              onChange={(v) => set('notifySound', v)}
+            />
+          </Row>
+          <Row
+            label={t('settings.notifyPermission')}
+            hint={st.claudeHub ? t('settings.notifyPermissionHint') : t('settings.notifyNeedsHub')}
+            disabled={!st.notifications}
+          >
+            <Switch
+              label={t('settings.notifyPermission')}
+              value={st.notifyPermission}
+              disabled={!st.notifications}
+              onChange={(v) => set('notifyPermission', v)}
+            />
+          </Row>
+          <Row
+            label={t('settings.notifyQuestion')}
+            hint={st.claudeHub ? t('settings.notifyQuestionHint') : t('settings.notifyNeedsHub')}
+            disabled={!st.notifications}
+          >
+            <Switch
+              label={t('settings.notifyQuestion')}
+              value={st.notifyQuestion}
+              disabled={!st.notifications}
+              onChange={(v) => set('notifyQuestion', v)}
             />
           </Row>
           <Row

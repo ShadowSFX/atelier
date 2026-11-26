@@ -1,18 +1,26 @@
 import { NOTIFY_THROTTLE_MS } from './constants';
-import type { ClaudeState } from './ipc';
+import type { ClaudeStatus } from './ipc';
 import type { Settings } from './settings';
 
 /** Events that can raise a desktop notification. */
-export type NotifyKind = 'waiting' | 'claudeDone' | 'command' | 'bell';
+export type NotifyKind = 'permission' | 'question' | 'claudeDone' | 'command' | 'bell';
 
-export const NOTIFY_KINDS: readonly NotifyKind[] = ['waiting', 'claudeDone', 'command', 'bell'];
+export const NOTIFY_KINDS: readonly NotifyKind[] = [
+  'permission',
+  'question',
+  'claudeDone',
+  'command',
+  'bell',
+];
 
 /** The master switch and the event's own switch are both on. */
 export function notifyEnabled(s: Settings, kind: NotifyKind): boolean {
   if (!s.notifications) return false;
   switch (kind) {
-    case 'waiting':
-      return s.notifyWaiting;
+    case 'permission':
+      return s.notifyPermission;
+    case 'question':
+      return s.notifyQuestion;
     case 'claudeDone':
       return s.notifyClaudeDone;
     case 'command':
@@ -22,18 +30,23 @@ export function notifyEnabled(s: Settings, kind: NotifyKind): boolean {
   }
 }
 
+type ClaudeSnapshot = Pick<ClaudeStatus, 'state' | 'asking'> | null | undefined;
+
 /**
- * The notification a Claude state change deserves: starting to wait for the user (permission, question, plan
- * approval) or finishing a turn. A new session (null → idle), the user coming back (done → idle) and a session
- * ending (→ null) are not news.
+ * The notification a Claude state change deserves: starting to wait for the user (a permission, or an answer to a
+ * question, plan approval or MCP form), a wait that turns into the other kind, or finishing a turn. A new session
+ * (null → idle), the user coming back (done → idle) and a session ending (→ null) are not news.
  */
-export function claudeTransition(
-  prev: ClaudeState | null | undefined,
-  next: ClaudeState | null | undefined,
-): NotifyKind | null {
-  if (next === prev) return null;
-  if (next === 'waiting') return 'waiting';
-  if (next === 'done' && (prev === 'busy' || prev === 'waiting')) return 'claudeDone';
+export function claudeTransition(prev: ClaudeSnapshot, next: ClaudeSnapshot): NotifyKind | null {
+  const before = prev?.state ?? null;
+  const after = next?.state ?? null;
+  if (after === 'waiting') {
+    const ask = next?.asking ?? 'permission';
+    if (before === 'waiting' && (prev?.asking ?? 'permission') === ask) return null;
+    return ask;
+  }
+  if (after === before) return null;
+  if (after === 'done' && (before === 'busy' || before === 'waiting')) return 'claudeDone';
   return null;
 }
 

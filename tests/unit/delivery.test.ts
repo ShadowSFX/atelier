@@ -237,6 +237,35 @@ describe('Delivery', () => {
       expect(d.claudeState('a2')).toBe('busy');
     });
 
+    it('says what a waiting session asks for (permission or question), only while it waits', () => {
+      const { d, statuses } = setup();
+      const asking = () => statuses.at(-1)!.asking;
+      d.hook('a2', 'UserPromptSubmit');
+      expect(asking()).toBeUndefined();
+      d.hook('a2', 'PreToolUse', undefined, undefined, 'Bash');
+      d.hook('a2', 'Notification', 'permission_prompt');
+      expect(asking()).toBe('permission');
+      d.hook('a2', 'Notification', 'idle_prompt'); // still waiting, still a permission
+      expect(asking()).toBe('permission');
+      d.userInput('a2', '\r'); // answered
+      expect(statuses.at(-1)).toEqual({ terminalId: 'a2', state: 'busy', queued: 0 });
+
+      d.hook('a2', 'PreToolUse', undefined, undefined, 'AskUserQuestion');
+      expect(asking()).toBe('question');
+      d.hook('a2', 'Notification', 'permission_prompt'); // the question's own prompt
+      expect(asking()).toBe('question');
+      d.hook('a2', 'PostToolUse', undefined, undefined, 'AskUserQuestion');
+      expect(asking()).toBeUndefined();
+
+      d.hook('a2', 'PreToolUse', undefined, undefined, 'ExitPlanMode');
+      expect(asking()).toBe('question');
+      d.hook('a2', 'PostToolUse', undefined, undefined, 'ExitPlanMode');
+      d.hook('a2', 'Notification', 'elicitation_dialog'); // an MCP server's form
+      expect(asking()).toBe('question');
+      d.hook('a2', 'Stop');
+      expect(statuses.at(-1)).toEqual({ terminalId: 'a2', state: 'done', queued: 0 });
+    });
+
     it('idle_prompt heals a turn interrupted without Stop, but keeps waiting and done', () => {
       const { d } = setup();
       d.hook('a1', 'UserPromptSubmit');

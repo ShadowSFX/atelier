@@ -1,6 +1,6 @@
 import { HUB_MAX_MESSAGE, HUB_MAX_QUEUE, HUB_RATE_PER_MINUTE } from '@shared/constants';
 import type { HookEvent, InboxMessage, PeerInfo, SendReport } from '@shared/hub';
-import type { ClaudeState, ClaudeStatus } from '@shared/ipc';
+import type { ClaudeAsk, ClaudeState, ClaudeStatus } from '@shared/ipc';
 
 /** What the router needs from the rest of the app (injected so the logic is testable without PTYs). */
 export interface DeliveryDeps {
@@ -19,6 +19,8 @@ interface TerminalState {
    * the user (questions, plan approval) can take several keys and ends with its PostToolUse hook.
    */
   waitFor: 'permission' | 'tool' | null;
+  /** What the user is asked for while `waiting` (picks the notification): a permission or a question/plan/form. */
+  ask: ClaudeAsk | null;
   /** The user typed into this terminal since Claude last became idle: injecting now would mix with their text. */
   typed: boolean;
   /** Start time of the last hook applied (async hooks may arrive late). */
@@ -62,7 +64,7 @@ export class Delivery {
   private state(id: string): TerminalState {
     let s = this.states.get(id);
     if (!s) {
-      s = { claude: null, waitFor: null, typed: false, lastHookAt: 0, queue: [], inbox: [] };
+      s = { claude: null, waitFor: null, ask: null, typed: false, lastHookAt: 0, queue: [], inbox: [] };
       this.states.set(id, s);
     }
     return s;
@@ -74,7 +76,12 @@ export class Delivery {
 
   private publish(id: string): void {
     const s = this.state(id);
-    this.deps.onStatus({ terminalId: id, state: s.claude, queued: s.queue.length });
+    this.deps.onStatus({
+      terminalId: id,
+      state: s.claude,
+      queued: s.queue.length,
+      ...(s.claude === 'waiting' && s.ask ? { asking: s.ask } : {}),
+    });
   }
 
   hook(
@@ -87,9 +94,14 @@ export class Delivery {
     const s = this.state(terminalId);
     if (at < s.lastHookAt) return;
     s.lastHookAt = at;
-    const set = (state: ClaudeState | null, waitFor: TerminalState['waitFor'] = null) => {
+    const set = (
+      state: ClaudeState | null,
+      waitFor: TerminalState['waitFor'] = null,
+      ask: ClaudeAsk | null = null,
+    ) => {
       s.claude = state;
       s.waitFor = waitFor;
+      s.ask = ask;
     };
     switch (event) {
       case 'SessionStart':
@@ -105,13 +117,21 @@ export class Delivery {
         set('busy');
         break;
       case 'PreToolUse':
-        if (tool && ASKING_TOOLS.has(tool)) set('waiting', 'tool');
+        if (tool && ASKING_TOOLS.has(tool)) set('waiting', 'tool', 'question');
         else set('busy');
         break;
       case 'Notification':
         // A question already open stays one (its own notification must not make Enter end the wait early).
-        if (notificationType && ASKING_NOTIFICATIONS.has(notificationType))
-          set('waiting', s.claude === 'waiting' && s.waitFor === 'tool' ? 'tool' : 'permission');
+        if (notificationType && ASKING_NOTIFICATIONS.has(notificationType)) {
+          if (s.claude === 'waiting' && s.waitFor === 'tool') set('waiting', 'tool', 'question');
+          // An MCP server's form (elicitation) asks the user something; anything else asks for a permission.
+          else
+            set(
+              'waiting',
+              'permission',
+              notificationType === 'elicitation_dialog' ? 'question' : 'permission',
+            );
+        }
         // Claude waits for a prompt: a turn interrupted with Esc never sends Stop, so `busy` would stay forever.
         else if (notificationType === 'idle_prompt' && s.claude === 'busy') set('idle');
         break;
@@ -140,6 +160,7 @@ export class Delivery {
       if (s.claude === 'waiting' && s.waitFor === 'permission') {
         s.claude = 'busy';
         s.waitFor = null;
+        s.ask = null;
         this.publish(terminalId);
       }
       return;

@@ -76,14 +76,27 @@ test('desktop notifications', async () => {
   const bell = dialog.getByRole('switch', { name: /Campana de la terminal|Terminal bell/ });
   const longCmd = dialog.getByRole('switch', { name: /Comando largo terminado|Long command finished/ });
   const seconds = dialog.getByRole('spinbutton', { name: /Duración mínima|Minimum duration/ });
+  const sound = dialog.getByRole('switch', { name: /^(Sonido|Play sound)$/ });
+  const permission = dialog.getByRole('switch', { name: /Claude pide permiso|Claude asks for permission/ });
+  const question = dialog.getByRole('switch', {
+    name: /Claude te hace una pregunta|Claude asks you a question/,
+  });
   await expect(master).toHaveAttribute('aria-checked', 'true');
   await expect(seconds).toHaveValue('10');
+  for (const sw of [sound, permission, question]) await expect(sw).toHaveAttribute('aria-checked', 'true');
   await master.click();
   await expect(master).toHaveAttribute('aria-checked', 'false');
   await expect(bell).toBeDisabled();
   await expect(seconds).toBeDisabled();
+  for (const sw of [sound, permission, question]) await expect(sw).toBeDisabled();
   await master.click();
   await expect(bell).toBeEnabled();
+  // Permissions and questions are separate switches.
+  await question.click();
+  await expect(question).toHaveAttribute('aria-checked', 'false');
+  await expect(permission).toHaveAttribute('aria-checked', 'true');
+  await question.click();
+  await expect(question).toHaveAttribute('aria-checked', 'true');
   await longCmd.click();
   await expect(seconds).toBeDisabled();
   await longCmd.click();

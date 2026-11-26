@@ -57,11 +57,12 @@ export function initNotifications(): void {
     const now = Date.now();
     for (const [id, status] of Object.entries(s.claude)) {
       if (status === prev.claude[id]) continue;
-      const before = prev.claude[id]?.state;
+      const before = prev.claude[id];
       if (status.state) claudeAt.set(id, now);
-      else if (before) claudeAt.set(id, now); // ended just now: still part of the running command
-      const kind = claudeTransition(before, status.state);
-      if (kind === 'waiting') notify(id, kind, t('notify.waiting'));
+      else if (before?.state) claudeAt.set(id, now); // ended just now: still part of the running command
+      const kind = claudeTransition(before, status);
+      if (kind === 'permission') notify(id, kind, t('notify.permission'));
+      else if (kind === 'question') notify(id, kind, t('notify.question'));
       else if (kind === 'claudeDone') notify(id, kind, t('notify.claudeDone'));
     }
   });

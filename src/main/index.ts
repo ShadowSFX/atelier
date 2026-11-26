@@ -187,7 +187,10 @@ async function main(): Promise<void> {
     powerline: () => settings.get().powerlinePrompt,
   });
 
-  const notifier = new Notifier(() => win);
+  const notifier = new Notifier(
+    () => win,
+    () => !settings.get().notifySound,
+  );
   const forget = (id: string) => {
     hub.revoke(id);
     notifier.closeFor(id);

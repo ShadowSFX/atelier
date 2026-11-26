@@ -245,10 +245,14 @@ export const STRINGS = {
     'Avisos del sistema, aunque Atelier esté en segundo plano. Haz clic en uno para abrir su terminal.',
     'System notifications, even when Atelier is in the background. Click one to open its terminal.',
   ],
-  'settings.notifyWaiting': ['Claude necesita tu respuesta', 'Claude needs your answer'],
-  'settings.notifyWaitingHint': [
-    'Permisos, preguntas y aprobación de planes',
-    'Permission prompts, questions and plan approvals',
+  'settings.notifySound': ['Sonido', 'Play sound'],
+  'settings.notifySoundHint': ['El sonido de notificación del sistema', "The system's notification sound"],
+  'settings.notifyPermission': ['Claude pide permiso', 'Claude asks for permission'],
+  'settings.notifyPermissionHint': ['Aprobar una herramienta o un comando', 'Approving a tool or a command'],
+  'settings.notifyQuestion': ['Claude te hace una pregunta', 'Claude asks you a question'],
+  'settings.notifyQuestionHint': [
+    'Preguntas, aprobación de planes y formularios de MCP',
+    'Questions, plan approvals and MCP forms',
   ],
   'settings.notifyClaudeDone': ['Claude terminó de responder', 'Claude finished a response'],
   'settings.notifyNeedsHub': [
@@ -266,7 +270,8 @@ export const STRINGS = {
   'settings.done': ['Listo', 'Done'],
 
   // Desktop notifications
-  'notify.waiting': ['Claude necesita tu respuesta', 'Claude needs your answer'],
+  'notify.permission': ['Claude necesita tu permiso', 'Claude needs your permission'],
+  'notify.question': ['Claude te hace una pregunta', 'Claude has a question for you'],
   'notify.claudeDone': ['Claude terminó', 'Claude finished'],
   'notify.commandOk': ['Comando terminado tras {0}', 'Command finished after {0}'],
   'notify.commandFailed': [

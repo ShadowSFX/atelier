@@ -43,11 +43,16 @@ export interface PathInfo {
  */
 export type ClaudeState = 'idle' | 'busy' | 'waiting' | 'done';
 
+/** What a `waiting` session asks for: a permission, or an answer (question, plan approval, MCP form). */
+export type ClaudeAsk = 'permission' | 'question';
+
 export interface ClaudeStatus {
   terminalId: string;
   /** null = no Claude session in this terminal. */
   state: ClaudeState | null;
   queued: number;
+  /** Only while `waiting`. */
+  asking?: ClaudeAsk;
 }
 
 export interface TerminalStats {
