@@ -22,7 +22,9 @@ const hub = new HubServer({
   delivery,
   readOutput: async (id, lines) => `${id}:${lines}`,
   setTitle: (id, title) => (titles.push({ id, title }), 'ok'),
+  onSession: (id, session) => sessions.push({ id, ...session }),
 });
+const sessions: { id: string; sessionId: string; codeMode: boolean }[] = [];
 const tokens: Record<string, string> = {};
 
 beforeAll(async () => {
@@ -65,6 +67,17 @@ describe('HubServer (real pipe)', () => {
     const r = await client('a1').request<SendReport[]>('send', { to: 'a2', message: 'run the tests' });
     expect(r[0]!.status).toBe('delivered');
     expect(written.some((w) => w.id === 'a2' && w.data.includes('run the tests'))).toBe(true);
+  });
+
+  it('reports a session id from SessionStart, for the token’s terminal only', async () => {
+    const env = { path: hub.path, token: tokens.a1! };
+    const id = '4574a299-53dc-4ef0-a013-778da5087089';
+    await sendOnce(env, { t: 'hook', event: 'SessionStart', at: Date.now(), sessionId: id, codeMode: true });
+    // Not a UUID (it would be typed into a shell on restore), or not SessionStart: ignored.
+    await sendOnce(env, { t: 'hook', event: 'SessionStart', at: Date.now(), sessionId: 'x; calc' });
+    await sendOnce(env, { t: 'hook', event: 'Stop', at: Date.now(), sessionId: id });
+    await new Promise((r) => setTimeout(r, 50));
+    expect(sessions).toEqual([{ id: 'a1', sessionId: id, codeMode: true }]);
   });
 
   it('names only the caller’s own terminal, with a clean title', async () => {

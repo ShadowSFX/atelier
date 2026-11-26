@@ -2,7 +2,7 @@ import {
   Add16Regular,
   ArrowClockwise16Regular,
   Branch16Regular,
-  ChevronDown12Regular,
+  CodeBlock16Regular,
   Dismiss12Regular,
   LockOpen16Regular,
   Rename16Regular,
@@ -24,13 +24,13 @@ import {
   duplicateTerminal,
   dropOnColumn,
   moveTerminal,
-  newTerminalInActive,
   renameTerminal,
   selectTerminal,
   updateTerminal,
   useWorkspace,
 } from '../../state/workspace';
 import { restartTerminal } from '../../terminal/registry';
+import { openLauncherMenu } from '../launch/launch';
 import s from './Sidebar.module.css';
 
 export const TERMINAL_DRAG = 'application/x-atelier-terminal';
@@ -85,19 +85,6 @@ function openRight(id: string): void {
   if (!p) return;
   const last = Math.max(0, p.layout.columns.length - 1);
   dropOnColumn(id, last, 'right');
-}
-
-function profileMenu(x: number, y: number): void {
-  const { profiles, defaultProfileId } = useApp.getState();
-  openMenu(
-    x,
-    y,
-    profiles.map((p) => ({
-      label: p.name,
-      checked: p.id === defaultProfileId,
-      run: () => newTerminalInActive({ profileId: p.id }),
-    })),
-  );
 }
 
 /**
@@ -203,6 +190,12 @@ const Row = memo(function Row({
       <span className={s.name}>{term.name}</span>
       <span className={s.meta}>
         <ClaudeStatus id={term.id} />
+        {term.claude?.active && term.claude.codeMode && (
+          <span className={cx(s.metaItem, s.codeMode)}>
+            <CodeBlock16Regular fontSize={12} />
+            {t('launch.codeModeTag')}
+          </span>
+        )}
         {rt?.status === 'exited' && (
           <span className={cx(s.metaItem, s.exited)}>
             {t('term.exited', rt.exitCode ?? 0).replace(/\.$/, '')}
@@ -255,21 +248,15 @@ export function Sidebar() {
         <span className={s.title}>{tr('terminals.title')}</span>
         <span className={s.newGroup}>
           <IconButton
-            label={`${tr('terminals.new')} (Ctrl+Shift+T)`}
-            size="sm"
-            onClick={() => newTerminalInActive()}
-          >
-            <Add16Regular />
-          </IconButton>
-          <IconButton
             label={tr('terminals.newWith')}
             size="sm"
+            aria-haspopup="menu"
             onClick={(e) => {
               const r = e.currentTarget.getBoundingClientRect();
-              profileMenu(r.left, r.bottom + 4);
+              void openLauncherMenu(r.left, r.bottom + 4);
             }}
           >
-            <ChevronDown12Regular />
+            <Add16Regular />
           </IconButton>
         </span>
       </div>

@@ -7,6 +7,7 @@ import {
 } from '@fluentui/react-icons';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { cx } from '../../components/Button';
+import { LAUNCHERS } from '@shared/launchers';
 import { shortPath } from '../../lib/format';
 import { useApp, useT } from '../../state/app';
 import {
@@ -17,6 +18,7 @@ import {
   splitActive,
   useWorkspace,
 } from '../../state/workspace';
+import { launch, LauncherIcon, openSessionPicker, ResumeIcon } from '../launch/launch';
 import s from './CommandPalette.module.css';
 
 interface Entry {
@@ -81,6 +83,20 @@ function Palette() {
         kind: t('palette.action'),
         icon: <Add16Regular />,
         run: () => newTerminalInActive(),
+      },
+      ...LAUNCHERS.filter((l) => l.id !== 'shell').map((l) => ({
+        key: `a:l:${l.id}`,
+        title: t(l.label),
+        kind: t('palette.action'),
+        icon: <LauncherIcon id={l.id} />,
+        run: () => launch(l.id),
+      })),
+      {
+        key: 'a:resume',
+        title: t('launch.resume'),
+        kind: t('palette.action'),
+        icon: <ResumeIcon />,
+        run: openSessionPicker,
       },
       {
         key: 'a:split',

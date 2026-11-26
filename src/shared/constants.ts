@@ -37,6 +37,14 @@ export const HUB_MAX_READ_LINES = 500;
 /** A title Claude gives its terminal (atelier_set_title), in characters. */
 export const HUB_MAX_TITLE = 48;
 
+/** Claude Code's experimental Code Mode. A Code Mode session resumes as one only with the variable still set. */
+export const CODE_MODE_ENV = 'CLAUDE_CODE_EXPERIMENTAL_CODE_MODE';
+/** A launch command is typed into a shell without integration marks after this long. */
+export const LAUNCH_FALLBACK_MS = 10_000;
+/** Claude session picker: newest transcripts read, and bytes read from each end of one. */
+export const SESSIONS_MAX = 150;
+export const SESSIONS_READ_BYTES = 64 * 1024;
+
 /** At most one desktop notification per terminal and event kind in this window. */
 export const NOTIFY_THROTTLE_MS = 10_000;
 

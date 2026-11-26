@@ -4,6 +4,7 @@ import { ContextMenu } from './components/ContextMenu';
 import { DialogHost, Toasts } from './components/Overlays';
 import { CommandPalette } from './features/palette/CommandPalette';
 import { PaneGrid } from './features/panes/PaneGrid';
+import { SessionPicker } from './features/sessions/SessionPicker';
 import { SettingsDialog } from './features/settings/SettingsDialog';
 import { Sidebar } from './features/sidebar/Sidebar';
 import { StatusBar } from './features/statusbar/StatusBar';
@@ -58,7 +59,7 @@ function useAppEffects(): void {
         (e.ctrlKey && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'k' ? 'palette' : null);
       if (!sc) return;
       const st = useApp.getState();
-      if ((st.dialog || st.settingsOpen) && sc !== 'settings') return;
+      if ((st.dialog || st.settingsOpen || st.sessionsOpen) && sc !== 'settings') return;
       e.preventDefault();
       runShortcut(sc);
     };
@@ -170,6 +171,7 @@ export function App() {
       </div>
       <StatusBar />
       <CommandPalette />
+      <SessionPicker />
       <SettingsDialog />
       <DialogHost />
       <ContextMenu />

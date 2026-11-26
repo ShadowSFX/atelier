@@ -53,6 +53,8 @@ export interface LaunchOptions {
   env: Record<string, string>;
   /** Paths of the claude wrapper files as WSL sees them are derived through WSLENV /p. */
   claudeExe: string | null;
+  /** Variables set by a launcher (Code Mode): WSL shells receive them through WSLENV too. */
+  launchEnv?: readonly string[];
 }
 
 export interface Launch {
@@ -137,7 +139,7 @@ export function buildLaunch(o: LaunchOptions): Launch {
       env.ATELIER_CWD = linuxCwd ?? '';
       const rc = toWslPath(scripts.bash, profile.distro) ?? scripts.bash;
       const prev = process.env.WSLENV ? process.env.WSLENV + ':' : '';
-      env.WSLENV = prev + WSL_SHARED.join(':');
+      env.WSLENV = prev + [...WSL_SHARED, ...(o.launchEnv ?? [])].join(':');
       const args = ['-d', profile.distro ?? '', ...(linuxCwd ? ['--cd', linuxCwd] : ['--cd', '~'])];
       return {
         file: profile.file,

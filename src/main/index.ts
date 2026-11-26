@@ -10,6 +10,7 @@ import { QUIT_KILL_WAIT_MS } from '@shared/constants';
 import { parseSettings, type Settings } from '@shared/settings';
 import { parseWorkspace, type Workspace } from '@shared/workspace';
 import { writeClaudeFiles, type ClaudeFiles } from './claude/integration';
+import { listClaudeSessions } from './claude/sessions';
 import { ClipboardService } from './clipboard';
 import { Delivery } from './hub/Delivery';
 import { HubServer } from './hub/HubServer';
@@ -58,6 +59,9 @@ if (!app.requestSingleInstanceLock()) {
 
 async function main(): Promise<void> {
   let win: BrowserWindow | null = null;
+  // Closing: the renderer asks about running programs and saves snapshots, then calls app:ready-to-quit.
+  // From then on the workspace is frozen: shells dying while Atelier quits must not read as Claude sessions ending.
+  let quitting = false;
   let pendingOpen = directoryArg(process.argv, process.cwd());
 
   app.on('second-instance', (_e, argv, cwd) => {
@@ -143,6 +147,8 @@ async function main(): Promise<void> {
       send(win, 'terminal:set-title', terminalId, title);
       return `Title set: "${title}"`;
     },
+    // The renderer owns the workspace: it records the session so the terminal resumes it after a restart.
+    onSession: (terminalId, session) => !quitting && send(win, 'claude:session', terminalId, session),
   });
   let hubReady = false;
   try {
@@ -235,8 +241,6 @@ async function main(): Promise<void> {
     }
   });
 
-  // Closing: the renderer asks about running programs and saves snapshots, then calls app:ready-to-quit.
-  let quitting = false;
   let closeAcked = false;
   win.on('close', (e) => {
     if (quitting) return;
@@ -280,7 +284,9 @@ async function main(): Promise<void> {
     dataFallback: dataInfo.fallback,
   }));
   handle('workspace:load', () => workspace.get());
-  handle('workspace:save', (ws) => workspace.set(parseWorkspace(ws)));
+  handle('workspace:save', (ws) => {
+    if (!quitting) workspace.set(parseWorkspace(ws));
+  });
   handle('settings:load', () => settings.get());
   handle('settings:save', (patch) => {
     const next = parseSettings({ ...settings.get(), ...patch });
@@ -331,6 +337,10 @@ async function main(): Promise<void> {
   handle('claude:deliver-now', (id) => delivery.flush(id, true));
   handle('claude:shell-prompt', (id) => delivery.shellPrompt(id));
   handle('claude:seen', (id) => delivery.seen(id));
+  handle('claude:available', () => !!(claudeExe === undefined ? (claudeExe = which('claude')) : claudeExe));
+  handle('claude:sessions', (projectPath) =>
+    typeof projectPath === 'string' && projectPath ? listClaudeSessions(projectPath) : [],
+  );
   handle('notify:show', (n) => notifier.show(n));
   handle('term:read-reply', (id, text) => {
     readRequests.get(id)?.(text);

@@ -11,6 +11,7 @@ import {
   PTY_KILL_WAIT_MS,
 } from '@shared/constants';
 import type { PtyFrame, SpawnRequest, SpawnResult } from '@shared/ipc';
+import { filterLaunchEnv } from '@shared/launchers';
 import type { Profile } from '@shared/shell';
 import { log } from '../log';
 import { buildLaunch, type ShellScripts } from '../shell/integration';
@@ -136,7 +137,13 @@ export class PtyManager extends EventEmitter<{
       cwd,
       scripts: this.scripts,
       powerline: this.provider.powerline(),
-      env: { ...baseEnv(), ...this.provider.envFor(req.terminalId, req.projectId, profile) },
+      // A launcher's variables (Code Mode) come from the renderer: only the allowed keys pass.
+      env: {
+        ...baseEnv(),
+        ...filterLaunchEnv(req.env),
+        ...this.provider.envFor(req.terminalId, req.projectId, profile),
+      },
+      launchEnv: Object.keys(filterLaunchEnv(req.env)),
       claudeExe: this.provider.claudeExe(),
     });
 

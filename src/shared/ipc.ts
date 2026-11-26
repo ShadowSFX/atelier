@@ -1,3 +1,4 @@
+import type { ClaudeSessionInfo } from './launchers';
 import type { NotifyKind } from './notify';
 import type { Settings, SettingsPatch } from './settings';
 import type { Profile, ShellKind } from './shell';
@@ -17,6 +18,8 @@ export interface SpawnRequest {
   cwd: string;
   cols: number;
   rows: number;
+  /** Extra variables from a launcher (Code Mode); main keeps only LAUNCH_ENV_KEYS. */
+  env?: Record<string, string>;
 }
 
 export type SpawnResult =
@@ -123,6 +126,10 @@ export interface Invoke {
   'claude:shell-prompt': (terminalId: string) => void;
   /** The user looked at a terminal whose Claude session finished (done → idle). */
   'claude:seen': (terminalId: string) => void;
+  /** Claude Code is on the PATH of Atelier's process (the + menu's Claude entries). */
+  'claude:available': () => boolean;
+  /** Resumable Claude sessions whose folder is the project's or one inside it, newest first. */
+  'claude:sessions': (projectPath: string) => ClaudeSessionInfo[];
   'term:read-reply': (reqId: number, text: string | null) => void;
   /** Shows a desktop notification; false when the system can't show one. */
   'notify:show': (n: NotifyRequest) => boolean;
@@ -148,6 +155,8 @@ export interface Events {
   'notify:activate': (terminalId: string) => void;
   /** The Claude session of a terminal named it (atelier_set_title). Ignored when the user named it by hand. */
   'terminal:set-title': (terminalId: string, title: string) => void;
+  /** A Claude session started in a terminal: remember it so the terminal resumes it after a restart. */
+  'claude:session': (terminalId: string, session: { sessionId: string; codeMode: boolean }) => void;
 }
 
 /** Messages on the PTY MessagePort. */

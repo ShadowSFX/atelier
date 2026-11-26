@@ -12,6 +12,7 @@ import {
   type HubRequest,
   type HubResponse,
 } from '@shared/hub';
+import { isSessionId } from '@shared/workspace';
 import { log } from '../log';
 import type { Delivery } from './Delivery';
 
@@ -26,6 +27,8 @@ export interface HubDeps {
   readOutput(terminalId: string, lines: number): Promise<string | null>;
   /** Names the terminal in the sidebar (atelier_set_title); returns what to tell Claude. */
   setTitle(terminalId: string, title: string): string;
+  /** A Claude session started in a terminal (new, resumed, cleared or forked): its id, to resume it later. */
+  onSession?(terminalId: string, session: { sessionId: string; codeMode: boolean }): void;
 }
 
 function pipePath(): string {
@@ -117,6 +120,12 @@ export class HubServer {
             Number(msg.at) || Date.now(),
             typeof msg.tool === 'string' ? msg.tool : undefined,
           );
+          if (msg.event === 'SessionStart' && isSessionId(msg.sessionId)) {
+            this.deps.onSession?.(who.terminalId, {
+              sessionId: msg.sessionId,
+              codeMode: msg.codeMode === true,
+            });
+          }
           return;
         }
         if (msg.t === 'req') {

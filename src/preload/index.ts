@@ -12,6 +12,7 @@ const EVENTS = new Set<keyof Events>([
   'update:status',
   'notify:activate',
   'terminal:set-title',
+  'claude:session',
 ]);
 
 const api: AtelierApi = {

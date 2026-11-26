@@ -1,0 +1,6 @@
+/* The + menu's caption above the shell profiles: quieter than a row, it names the group. */
+.caption {
+  padding: 6px 10px 2px 30px;
+  color: var(--fg-3);
+  font-size: var(--fs-caption);
+}

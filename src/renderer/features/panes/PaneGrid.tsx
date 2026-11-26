@@ -28,6 +28,7 @@ import { attachTerminal, getController, releaseTerminal } from '../../terminal/r
 import type { TerminalController } from '../../terminal/TerminalController';
 import { TERMINAL_DRAG } from '../sidebar/Sidebar';
 import { SearchBar } from './SearchBar';
+import { launch, LauncherIcon } from '../launch/launch';
 import s from './PaneGrid.module.css';
 
 function DropLayer({ index, full }: { index: number; full: boolean }) {
@@ -215,10 +216,16 @@ export function PaneGrid() {
             <p className={s.emptyText}>
               {project.terminals.length === 0 ? t('terminals.empty') : t('pane.empty')}
             </p>
-            <Button variant="primary" onClick={() => newTerminalInActive()}>
-              <WindowConsole20Regular fontSize={16} />
-              {t('terminals.new')}
-            </Button>
+            <div className={s.emptyActions}>
+              <Button variant="primary" onClick={() => newTerminalInActive()}>
+                <WindowConsole20Regular fontSize={16} />
+                {t('terminals.new')}
+              </Button>
+              <Button onClick={() => launch('claude')}>
+                <LauncherIcon id="claude" />
+                {t('launch.claude')}
+              </Button>
+            </div>
           </div>
         </div>
       </main>

@@ -51,6 +51,10 @@ interface AppState {
   menu: { x: number; y: number; items: MenuEntry[] } | null;
   dialog: Dialog | null;
   paletteOpen: boolean;
+  /** "Resume a Claude session" picker. */
+  sessionsOpen: boolean;
+  /** Claude Code is on Atelier's PATH (null = not asked yet): the + menu disables its Claude entries otherwise. */
+  claudeAvailable: boolean | null;
   settingsOpen: boolean;
   /** Terminal being dragged from the sidebar (panes show their drop zones). */
   dragTerminalId: string | null;
@@ -73,6 +77,8 @@ export const useApp = create<AppState>(() => ({
   menu: null,
   dialog: null,
   paletteOpen: false,
+  sessionsOpen: false,
+  claudeAvailable: null,
   settingsOpen: false,
   dragTerminalId: null,
 }));

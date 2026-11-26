@@ -8,8 +8,9 @@ import { Unicode11Addon } from '@xterm/addon-unicode11';
 import { WebLinksAddon } from '@xterm/addon-web-links';
 import { WebglAddon } from '@xterm/addon-webgl';
 import { Terminal, type IMarker } from '@xterm/xterm';
-import { ACK_INTERVAL_MS } from '@shared/constants';
+import { ACK_INTERVAL_MS, LAUNCH_FALLBACK_MS } from '@shared/constants';
 import type { PtyFrame } from '@shared/ipc';
+import { claudeCommand, claudeLaunchEnv } from '@shared/launchers';
 import { formatDuration } from '@shared/notify';
 import type { Settings } from '@shared/settings';
 import { isLocalOscHost, parseOsc7, quotePaths, shellPathToNative, type ShellKind } from '@shared/shell';
@@ -17,7 +18,7 @@ import { api, ptyPort } from '../lib/api';
 import { confirmDialog, openMenu, t, toast, useApp } from '../state/app';
 import { claudeSince, notify } from '../state/notifications';
 import { patchRuntime, runtimeOf, useRuntime } from '../state/runtime';
-import { findTerminal, setLastCwd } from '../state/workspace';
+import { endClaudeSession, findTerminal, setLastCwd, terminalWithSession } from '../state/workspace';
 import { appShortcut, runShortcut } from './shortcuts';
 import { terminalTheme } from './theme';
 
@@ -90,6 +91,11 @@ export class TerminalController {
    * interrupted = the user pressed Ctrl+C meanwhile (they are there and stopped it themselves).
    */
   private command: { start: number; interactive: boolean; interrupted: boolean } | null = null;
+  /** A launcher's command (`claude --resume …`), typed once the new shell shows its prompt (OSC 133;B). */
+  private pendingRun: string | null = null;
+  private runTimer = 0;
+  /** The launch command was typed: the next shell prompt (OSC 133;A) means it ended. */
+  private launched = false;
   private readonly listeners = new Set<Listener>();
   private readonly observer: ResizeObserver;
   /** Output since the last snapshot save. */
@@ -261,6 +267,17 @@ export class TerminalController {
     this.unlisten?.();
     this.unlisten = ptyPort.listen(this.id, (f) => this.onFrame(f));
     this.command = null; // a new shell runs nothing yet
+    // A terminal whose Claude session was running (a launcher, or a restart/crash of Atelier) starts it again.
+    let claude = terminal.claude?.active ? terminal.claude : null;
+    // Never one session in two terminals (both would write its transcript): only the first terminal resumes it.
+    const owner = claude?.sessionId ? terminalWithSession(claude.sessionId) : null;
+    if (claude && owner && owner.id !== this.id) {
+      endClaudeSession(this.id);
+      claude = null;
+    }
+    clearTimeout(this.runTimer);
+    this.pendingRun = null;
+    this.launched = false;
     patchRuntime(this.id, { status: 'starting', exitCode: undefined, error: undefined, ready: false });
     const cwd = terminal.lastCwd ?? project.path;
     const r = await api.invoke('pty:spawn', {
@@ -270,9 +287,15 @@ export class TerminalController {
       cwd,
       cols: this.term.cols,
       rows: this.term.rows,
+      ...(claude ? { env: claudeLaunchEnv(claude) } : {}),
     });
     // Closed meanwhile, or overtaken by a newer start (restart): that one reports.
     if (this.disposed || (!r.ok && r.error === 'cancelled')) return;
+    if (r.ok && claude) {
+      this.pendingRun = claudeCommand(claude);
+      // A shell without integration marks never sends OSC 133;B: type it anyway once it has had time to start.
+      this.runTimer = window.setTimeout(() => this.runPending(), LAUNCH_FALLBACK_MS);
+    }
     if (!r.ok) {
       patchRuntime(this.id, { status: 'failed', error: r.error });
       this.term.write(`\r\n\x1b[31m${t('term.spawnFailed', terminal.name, r.error)}\x1b[0m\r\n`);
@@ -372,6 +395,7 @@ export class TerminalController {
     this.disposed = true;
     this.unlisten?.();
     this.observer.disconnect();
+    clearTimeout(this.runTimer);
     clearTimeout(this.ackTimer);
     clearTimeout(this.resizeTimer);
     this.webgl?.dispose();
@@ -502,6 +526,16 @@ export class TerminalController {
     else if (this.command && d.includes('\x03')) this.command.interrupted = true;
   }
 
+  /** Types the launcher's command into the shell, once, as if the user had typed it. */
+  private runPending(): void {
+    clearTimeout(this.runTimer);
+    const cmd = this.pendingRun;
+    this.pendingRun = null;
+    if (!cmd || this.disposed || runtimeOf(this.id).status !== 'running') return;
+    this.launched = true;
+    this.input(cmd + '\r');
+  }
+
   /** Types text as a paste (bracketed when the program asked for it). */
   pasteText(text: string): void {
     this.term.paste(text);
@@ -613,7 +647,13 @@ export class TerminalController {
     this.term.parser.registerOscHandler(133, (data) => {
       const [kind, arg] = data.split(';');
       if (kind === 'A') {
-        if (useRuntime.getState().claude[this.id]?.state) void api.invoke('claude:shell-prompt', this.id);
+        const hadClaude = !!useRuntime.getState().claude[this.id]?.state;
+        if (hadClaude) void api.invoke('claude:shell-prompt', this.id);
+        // The shell is back after Claude (exit, crash, or `claude` not found): don't resume it on the next start.
+        if (hadClaude || this.launched) {
+          this.launched = false;
+          endClaudeSession(this.id);
+        }
         const marker = this.term.registerMarker(0);
         if (marker) {
           this.prompts.push({ marker, exit: null });
@@ -624,6 +664,8 @@ export class TerminalController {
         const marker = this.term.registerMarker(0);
         this.promptEnd = marker ? { marker, x: this.term.buffer.active.cursorX } : null;
         this.command = null;
+        // The new shell is ready for input. Later, so the shell has handled this prompt before the keys arrive.
+        if (this.pendingRun) window.setTimeout(() => this.runPending(), 0);
       } else if (kind === 'C') {
         if (!this.command) this.startCommand();
       } else if (kind === 'D') {

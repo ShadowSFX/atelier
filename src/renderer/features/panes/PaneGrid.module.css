@@ -237,6 +237,11 @@
   gap: 12px;
   max-width: 420px;
 }
+.emptyActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
 .emptyTitle {
   margin: 0;
   font: 600 var(--fs-title) / 26px var(--font-display);

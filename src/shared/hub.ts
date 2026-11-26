@@ -27,6 +27,12 @@ export interface HookMessage {
   tool?: string;
   /** When the hook process started (ms). Async hooks can arrive out of order; older events are ignored. */
   at: number;
+  /** SessionStart: Claude Code's session id (it changes on /clear, /resume and forks). */
+  sessionId?: string;
+  /** SessionStart: startup, resume, clear, compact or fork. */
+  source?: string;
+  /** SessionStart: the session runs with CLAUDE_CODE_EXPERIMENTAL_CODE_MODE=1. */
+  codeMode?: boolean;
 }
 
 export interface PeerInfo {

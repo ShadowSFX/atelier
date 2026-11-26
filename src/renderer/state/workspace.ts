@@ -16,6 +16,7 @@ import {
   type Workspace,
 } from '@shared/workspace';
 import { MAX_COLUMNS } from '@shared/constants';
+import { isSessionId, launcher, type LauncherId } from '@shared/launchers';
 import { api } from '../lib/api';
 import { disposeTerminal, focusTerminal, startTerminal } from '../terminal/registry';
 import { confirmDialog, t, toast, useApp } from './app';
@@ -73,6 +74,7 @@ export async function loadWorkspace(): Promise<void> {
   if (p) startProject(p);
   api.on('app:open-project', (path) => void addProject(path));
   api.on('terminal:set-title', applyClaudeTitle);
+  api.on('claude:session', recordClaudeSession);
 }
 
 /** Saves right away (before quitting). */
@@ -179,24 +181,48 @@ function uniqueName(project: Project, base: string): string {
   for (let i = 2; ; i++) if (!names.has(`${base} ${i}`)) return `${base} ${i}`;
 }
 
-export function newTerminal(
-  projectId: string,
-  o: { profileId?: string; split?: boolean; color?: string | null; cwd?: string | null; name?: string } = {},
-): string | null {
+export interface NewTerminalOptions {
+  profileId?: string;
+  split?: boolean;
+  color?: string | null;
+  cwd?: string | null;
+  name?: string;
+  /** What starts in the new shell (see shared/launchers); a plain shell by default. */
+  launcher?: LauncherId;
+  /** Resume this Claude session (implies a Claude launcher). */
+  resume?: { sessionId: string; codeMode: boolean };
+}
+
+export function newTerminal(projectId: string, o: NewTerminalOptions = {}): string | null {
   const project = useWorkspace.getState().projects.find((p) => p.id === projectId);
   if (!project) return null;
   const app = useApp.getState();
   const profileId = o.profileId || app.defaultProfileId;
   const profile = app.profiles.find((p) => p.id === profileId);
+  const kind = launcher(
+    o.resume ? (o.resume.codeMode ? 'claude-code-mode' : 'claude') : (o.launcher ?? 'shell'),
+  );
   const spec: TerminalSpec = {
     id: newId('t'),
     name: uniqueName(
       project,
-      o.name ?? profile?.name ?? t('terminals.defaultName', project.terminals.length + 1),
+      o.name ??
+        (kind.name ? t(kind.name) : null) ??
+        profile?.name ??
+        t('terminals.defaultName', project.terminals.length + 1),
     ),
     color: o.color ?? null,
     profileId,
     lastCwd: o.cwd ?? null,
+    ...(kind.claude
+      ? {
+          claude: {
+            sessionId: o.resume && isSessionId(o.resume.sessionId) ? o.resume.sessionId : null,
+            codeMode: kind.claude.codeMode,
+            active: true,
+          },
+        }
+      : {}),
   };
   updateProject(projectId, (p) => {
     const layout =
@@ -266,6 +292,33 @@ export function updateTerminal(id: string, patch: Partial<Omit<TerminalSpec, 'id
 export function renameTerminal(id: string, name: string): void {
   const clean = name.trim();
   if (clean) updateTerminal(id, { name: clean, nameLocked: true });
+}
+
+/** A Claude session started in this terminal (hook SessionStart): it is resumed when the terminal starts again. */
+export function recordClaudeSession(id: string, s: { sessionId: string; codeMode: boolean }): void {
+  const term = findTerminal(id)?.terminal;
+  if (!term || !isSessionId(s.sessionId)) return;
+  const c = term.claude;
+  if (c?.active && c.sessionId === s.sessionId && c.codeMode === s.codeMode) return;
+  updateTerminal(id, { claude: { sessionId: s.sessionId, codeMode: s.codeMode, active: true } });
+}
+
+/** The shell's prompt came back: the Claude session of this terminal ended (it is no longer resumed on start). */
+export function endClaudeSession(id: string): void {
+  const term = findTerminal(id)?.terminal;
+  if (term?.claude?.active) updateTerminal(id, { claude: { ...term.claude, active: false } });
+}
+
+/**
+ * The terminal running a Claude session, if one of the workspace does: the same session must never be resumed in
+ * two terminals (both would write one transcript).
+ */
+export function terminalWithSession(sessionId: string): TerminalSpec | null {
+  for (const p of useWorkspace.getState().projects) {
+    const term = p.terminals.find((x) => x.claude?.active && x.claude.sessionId === sessionId);
+    if (term) return term;
+  }
+  return null;
 }
 
 /** A title from the terminal's Claude session; a name the user gave by hand wins. */

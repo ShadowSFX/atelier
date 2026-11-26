@@ -5,6 +5,7 @@
  * fast and must never disturb Claude: any failure exits 0 silently.
  */
 import type { HookEvent } from '@shared/hub';
+import { CODE_MODE_ENV } from '@shared/constants';
 import { hubEnv, sendOnce } from './hubClient';
 
 const startedAt = Date.now();
@@ -52,7 +53,13 @@ function print(text: string): Promise<void> {
 async function main(): Promise<void> {
   const env = hubEnv();
   if (!env) return;
-  let input: { hook_event_name?: string; notification_type?: string; tool_name?: string } = {};
+  let input: {
+    hook_event_name?: string;
+    notification_type?: string;
+    tool_name?: string;
+    session_id?: string;
+    source?: string;
+  } = {};
   try {
     input = JSON.parse(await readStdin(2000)) as typeof input;
   } catch {
@@ -73,6 +80,15 @@ async function main(): Promise<void> {
     at: startedAt,
     ...(typeof input.notification_type === 'string' ? { notificationType: input.notification_type } : {}),
     ...(typeof input.tool_name === 'string' ? { tool: input.tool_name.slice(0, 64) } : {}),
+    // The session id lets Atelier resume this session after a restart; the hook inherits Claude's environment, so
+    // Code Mode is known even for a `claude` typed by hand.
+    ...(event === 'SessionStart' && typeof input.session_id === 'string'
+      ? {
+          sessionId: input.session_id.slice(0, 64),
+          ...(typeof input.source === 'string' ? { source: input.source.slice(0, 32) } : {}),
+          codeMode: process.env[CODE_MODE_ENV] === '1',
+        }
+      : {}),
   });
 }
 

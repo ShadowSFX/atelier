@@ -128,6 +128,11 @@
 .branch {
   flex: 0 1 auto;
 }
+/* Code Mode stays visible next to the status: a resumed session needs it on to keep running as one. */
+.codeMode {
+  flex: none;
+  color: var(--accent-text);
+}
 
 .side {
   grid-row: 1 / 3;

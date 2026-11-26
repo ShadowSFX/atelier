@@ -138,7 +138,9 @@ server.registerTool(
           `Short title, e.g. "Login form validation" (at most ${HUB_MAX_TITLE} characters are shown)`,
         ),
     },
-    annotations: { idempotentHint: true },
+    // Read-only for Claude Code's permission system: it touches no file or program, only Atelier's sidebar label.
+    // Without the hint plan mode asks before every call, and Claude names its terminal mostly when starting a plan.
+    annotations: { readOnlyHint: true, idempotentHint: true },
   },
   ({ title }) => call<string>('set_title', { title }, (r) => r),
 );

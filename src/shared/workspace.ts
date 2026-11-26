@@ -13,6 +13,25 @@ export interface TerminalSpec {
   lastCwd: string | null;
   /** The user named it by hand: Claude's atelier_set_title leaves the name alone. */
   nameLocked?: boolean;
+  /** The Claude Code session of this terminal (resumed when the terminal starts, if it was running). */
+  claude?: ClaudeSessionRef;
+}
+
+/** A terminal's Claude session, persisted so it comes back after a restart or a power cut. */
+export interface ClaudeSessionRef {
+  /** Claude Code's session id (reported by its hooks); null until the session reports it. */
+  sessionId: string | null;
+  /** Started with CLAUDE_CODE_EXPERIMENTAL_CODE_MODE=1 (a Code Mode session resumes as one only with it). */
+  codeMode: boolean;
+  /** A session was running when the terminal was last saved: starting the terminal resumes it. */
+  active: boolean;
+}
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** Claude Code session ids are UUIDs; nothing else is ever typed into a shell as one. */
+export function isSessionId(value: unknown): value is string {
+  return typeof value === 'string' && UUID.test(value);
 }
 
 export interface PaneColumn {
@@ -55,6 +74,14 @@ const RawTerminal = z.object({
   profileId: z.string().catch(''),
   lastCwd: z.string().nullable().catch(null),
   nameLocked: z.boolean().optional().catch(undefined),
+  claude: z
+    .object({
+      sessionId: z.unknown().transform((v) => (isSessionId(v) ? v : null)),
+      codeMode: z.boolean().catch(false),
+      active: z.boolean().catch(false),
+    })
+    .optional()
+    .catch(undefined),
 });
 const RawProject = z.object({
   id: Id,
