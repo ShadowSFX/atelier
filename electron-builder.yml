@@ -44,7 +44,12 @@ win:
   icon: resources/icon.ico
 
 portable:
-  # No unpackDirName: each launch unpacks into its own temp folder, so a second launch never wipes a running copy.
+  # Each launch must unpack into its own temp folder: the stub empties that folder before unpacking and after the
+  # app exits, so a shared one lets a second launch (which then quits on the single-instance lock) delete the
+  # running copy's icudtl.dat & co. — and every ELECTRON_RUN_AS_NODE child (Claude hooks, MCP server) then dies
+  # with "Invalid file descriptor to ICU data". Left out (or `false`, despite the docs), electron-builder 26 uses one
+  # fixed name per build; only `true` skips it and unpacks into NSIS's per-launch $PLUGINSDIR.
+  unpackDirName: true
   requestExecutionLevel: user
   artifactName: Atelier.exe
 

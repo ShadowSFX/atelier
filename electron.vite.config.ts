@@ -9,6 +9,8 @@ export default defineConfig({
     resolve: { alias: shared },
     build: {
       rollupOptions: {
+        // Electron's built-in fs without asar support (not one of Node's builtins, so not externalized by default).
+        external: ['original-fs'],
         input: {
           index: resolve(__dirname, 'src/main/index.ts'),
           // Run by Claude Code with ELECTRON_RUN_AS_NODE=1 (Atelier's own executable acts as node).

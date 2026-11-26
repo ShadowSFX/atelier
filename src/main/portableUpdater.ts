@@ -9,8 +9,9 @@ import {
   rmSync,
   writeFileSync,
 } from 'node:fs';
-import { readdir, rm } from 'node:fs/promises';
+import { rm } from 'node:fs/promises';
 import { basename, dirname, join } from 'node:path';
+import { promises as originalFs } from 'original-fs';
 import { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 import { promisify } from 'node:util';
@@ -261,15 +262,17 @@ export async function removeInstallerLeftovers(dir: string): Promise<void> {
   if (!existsSync(uninstaller)) return;
   log.info(`removing the old installed copy's files from ${dir}`);
   let clean = await forgetInstall(uninstaller);
-  for (const name of installerLeftovers(await readdir(dir))) {
+  // Electron's own fs treats resources\app.asar as a folder and keeps the archive open, so it could never be
+  // deleted (EBUSY, minutes of retries on every start): original-fs sees it as the plain file it is.
+  for (const name of installerLeftovers(await originalFs.readdir(dir))) {
     try {
-      await rm(join(dir, name), { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
+      await originalFs.rm(join(dir, name), { recursive: true, force: true, maxRetries: 3, retryDelay: 200 });
     } catch (err) {
       clean = false;
       log.warn(`could not remove ${name}`, err);
     }
   }
-  if (clean) await rm(uninstaller, { force: true, maxRetries: 10, retryDelay: 200 });
+  if (clean) await originalFs.rm(uninstaller, { force: true, maxRetries: 3, retryDelay: 200 });
 }
 
 /** Deletes the setup's registry keys when they belong to this folder. False when that failed. */
