@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { installerLeftovers, regValue, resolveDataDir } from '@shared/portable';
+import { installerLeftovers, regValue, resolveDataDir, swapScript, type SwapPlan } from '@shared/portable';
+import { psQuote } from '@shared/shell';
 import {
   CHECKSUM_ASSET,
   compareVersions,
@@ -213,5 +214,47 @@ describe('resolveDataDir', () => {
     });
     expect(probed).toEqual(['C:\\Program Files\\Atelier.data']);
     expect(r).toEqual({ dir: 'C:\\A', portable: false, fallback: true });
+  });
+});
+
+describe('swapScript', () => {
+  const plan: SwapPlan = {
+    exe: "C:\\Users\\O'Neil\\Atelier.exe",
+    staged: "C:\\Users\\O'Neil\\Atelier.exe.new",
+    stagedVersion: "C:\\Users\\O'Neil\\Atelier.exe.new.version",
+    old: "C:\\Users\\O'Neil\\Atelier.exe.old",
+    version: '0.3.1',
+    waitPid: 4242,
+    relaunch: true,
+    logFile: 'C:\\data\\logs\\main.log',
+  };
+
+  it('quotes every path as a PowerShell literal', () => {
+    const s = swapScript(plan);
+    expect(s).toContain(`$exe = 'C:\\Users\\O''Neil\\Atelier.exe'`);
+    expect(s).toContain(`$new = 'C:\\Users\\O''Neil\\Atelier.exe.new'`);
+    expect(s).toContain(`$log = 'C:\\data\\logs\\main.log'`);
+    expect(s).not.toMatch(/O'Neil/);
+  });
+
+  it('waits for the stub, kills what still holds the exe, and relaunches when asked', () => {
+    const s = swapScript(plan);
+    expect(s).toContain('$waitPid = 4242');
+    expect(s).toContain('$relaunch = $true');
+    expect(s).toMatch(/taskkill/);
+    expect(swapScript({ ...plan, relaunch: false })).toContain('$relaunch = $false');
+    expect(swapScript({ ...plan, waitPid: null })).toContain('$waitPid = 0');
+    expect(swapScript({ ...plan, logFile: null })).toContain(`$log = ''`);
+    // Only a relaunch: nothing is renamed.
+    expect(swapScript({ ...plan, staged: null })).toContain(`$new = ''`);
+    expect(swapScript(plan)).toContain('if ($new -and [IO.File]::Exists($new))');
+  });
+});
+
+describe('psQuote', () => {
+  it('always quotes and doubles plain and typographic single quotes', () => {
+    expect(psQuote('C:\\a')).toBe(`'C:\\a'`);
+    expect(psQuote(`it's`)).toBe(`'it''s'`);
+    expect(psQuote('a\u2019b')).toBe(`'a\u2019\u2019b'`);
   });
 });

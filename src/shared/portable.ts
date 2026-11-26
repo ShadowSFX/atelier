@@ -1,3 +1,5 @@
+import { psQuote } from './shell';
+
 /**
  * Portable data folder (Windows single-exe build): everything Atelier writes lives in a folder next to the exe.
  * Falls back to the per-user AppData folder when the exe's folder can't be written (Program Files, read-only USB).
@@ -42,6 +44,89 @@ export function regValue(output: string, name: string): string | null {
     if (m && m[1]!.toLowerCase() === name.toLowerCase()) return m[2]!.trim();
   }
   return null;
+}
+
+/** What the update helper does once Atelier has quit (see swapScript). */
+export interface SwapPlan {
+  /** The portable Atelier.exe (the launcher that unpacks the app to %TEMP%). */
+  exe: string;
+  /** The verified download; null: nothing to swap, only relaunch. */
+  staged: string | null;
+  stagedVersion: string;
+  old: string;
+  version: string;
+  /** The launcher running this Atelier: it keeps the exe open until the app exits. Null: nothing to wait for. */
+  waitPid: number | null;
+  relaunch: boolean;
+  /** Atelier's log file, where the helper appends what happened; null: no log. */
+  logFile: string | null;
+}
+
+/** How long the helper waits for the launcher to exit, then for the exe to be free (each try), in seconds. */
+export const SWAP_WAIT_S = 30;
+export const SWAP_RETRY_S = 10;
+
+/**
+ * PowerShell for the helper that applies a staged update to the portable exe. The launcher (electron-builder's NSIS
+ * portable stub) keeps Atelier.exe open without delete sharing until the app has exited and it has removed the unpacked
+ * copy, so Atelier can't rename it itself (EBUSY). The helper waits for the launcher, swaps exe → .old and .new → exe
+ * (putting the old exe back if the second rename fails), and when the exe stays locked force-kills the Atelier
+ * processes started from it and tries again. It relaunches Atelier last, even when the swap failed.
+ */
+export function swapScript(p: SwapPlan): string {
+  return [
+    `$ErrorActionPreference = 'Stop'`,
+    `$exe = ${psQuote(p.exe)}`,
+    `$new = ${psQuote(p.staged ?? '')}`,
+    `$ver = ${psQuote(p.stagedVersion)}`,
+    `$old = ${psQuote(p.old)}`,
+    `$version = ${psQuote(p.version)}`,
+    `$log = ${psQuote(p.logFile ?? '')}`,
+    `$waitPid = ${p.waitPid ?? 0}`,
+    `$relaunch = ${p.relaunch ? '$true' : '$false'}`,
+    `function Write-UpdateLog([string]$m) {`,
+    `  if (-not $log) { return }`,
+    `  $line = '[' + (Get-Date -Format 'yyyy-MM-dd HH:mm:ss.fff') + '] [update] ' + $m`,
+    `  try { Add-Content -LiteralPath $log -Value $line -Encoding UTF8 } catch {}`,
+    `}`,
+    // '' when the swap worked, else why it didn't.
+    `function Invoke-Swap {`,
+    `  try { [IO.File]::Delete($old); [IO.File]::Move($exe, $old) } catch { return $_.Exception.Message }`,
+    `  try { [IO.File]::Move($new, $exe) } catch {`,
+    `    $err = $_.Exception.Message`,
+    `    try { [IO.File]::Move($old, $exe) } catch { Write-UpdateLog ('rollback failed: ' + $_.Exception.Message) }`,
+    `    return $err`,
+    `  }`,
+    `  try { [IO.File]::Delete($ver) } catch {}`,
+    `  return ''`,
+    `}`,
+    `function Wait-Swap([int]$seconds) {`,
+    `  $until = (Get-Date).AddSeconds($seconds)`,
+    `  while ($true) {`,
+    `    $err = Invoke-Swap`,
+    `    if (-not $err) { return $true }`,
+    `    if ((Get-Date) -gt $until) { Write-UpdateLog ('swap failed: ' + $err); return $false }`,
+    `    Start-Sleep -Milliseconds 500`,
+    `  }`,
+    `}`,
+    `if ($waitPid) { try { Wait-Process -Id $waitPid -Timeout ${SWAP_WAIT_S} -ErrorAction Stop } catch {} }`,
+    `if ($new -and [IO.File]::Exists($new)) {`,
+    `  $ok = Wait-Swap ${SWAP_RETRY_S}`,
+    `  if (-not $ok) {`,
+    `    Write-UpdateLog 'closing the Atelier processes that keep the exe open'`,
+    `    try {`,
+    `      Get-CimInstance Win32_Process | Where-Object { $_.ExecutablePath -eq $exe } |`,
+    `        ForEach-Object { & taskkill.exe /PID $_.ProcessId /T /F | Out-Null }`,
+    `    } catch { Write-UpdateLog ('could not close them: ' + $_.Exception.Message) }`,
+    `    $ok = Wait-Swap ${SWAP_RETRY_S}`,
+    `  }`,
+    `  if ($ok) { Write-UpdateLog ('updated to ' + $version) }`,
+    `}`,
+    `if ($relaunch) {`,
+    `  try { Start-Process -FilePath $exe -ArgumentList '--updated' -WorkingDirectory ([IO.Path]::GetDirectoryName($exe)) }`,
+    `  catch { Write-UpdateLog ('relaunch failed: ' + $_.Exception.Message) }`,
+    `}`,
+  ].join('\r\n');
 }
 
 export interface DataDirChoice {

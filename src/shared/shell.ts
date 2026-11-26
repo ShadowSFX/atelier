@@ -96,8 +96,7 @@ const SAFE_WIN = /^[A-Za-z0-9_@+=:,.\\/-]+$/;
 export function quotePath(path: string, kind: ShellKind, distro?: string): string {
   switch (kind) {
     case 'powershell':
-      // PowerShell also treats the typographic quotes ‘ ’ ‚ ‛ as single quotes: double them too.
-      return SAFE_WIN.test(path) ? path : `'${path.replace(/['\u2018\u2019\u201A\u201B]/g, (q) => q + q)}'`;
+      return SAFE_WIN.test(path) ? path : psQuote(path);
     case 'cmd':
       return SAFE_WIN.test(path) ? path : `"${path}"`;
     case 'gitbash':
@@ -110,6 +109,11 @@ export function quotePath(path: string, kind: ShellKind, distro?: string): strin
     default:
       return posixQuote(path);
   }
+}
+
+/** A PowerShell single-quoted literal. PowerShell also treats ‘ ’ ‚ ‛ as single quotes: they are doubled too. */
+export function psQuote(s: string): string {
+  return `'${s.replace(/['\u2018\u2019\u201A\u201B]/g, (q) => q + q)}'`;
 }
 
 export function posixQuote(s: string): string {

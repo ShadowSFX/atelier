@@ -23,6 +23,8 @@ import {
   NSIS_UNINSTALL_KEY,
   NSIS_UNINSTALLER,
   regValue,
+  swapScript,
+  type SwapPlan,
 } from '@shared/portable';
 import {
   compareVersions,
@@ -159,12 +161,18 @@ export class PortableUpdater {
   }
 
   /**
-   * Swaps the exe with the staged one (on quit, or from "Restart" with `relaunch`). Returns false when nothing was
-   * applied; a failed swap puts the old exe back so the user is never left without one. Only a staged file this run
-   * verified (download) or validated (cleanup) is used. `relaunch` starts Atelier again either way.
+   * Swaps the exe with the staged one (on quit, or from "Restart" with `relaunch`). Only a staged file this run
+   * verified (download) or validated (cleanup) is used; a failed swap puts the old exe back so the user is never left
+   * without one. `relaunch` starts Atelier again either way.
+   *
+   * The portable exe can't be swapped from here: its launcher keeps it open until this process has exited (EBUSY), so
+   * a helper does it once Atelier is gone (swapScript) and relaunches it — which also keeps the new launcher from
+   * unpacking into the %TEMP% folder the old one is about to delete. Returns whether a swap was done or handed over.
    */
   apply(relaunch: boolean): boolean {
-    const swapped = this.ready !== null && existsSync(this.staged) && this.swap();
+    const pending = this.ready !== null && existsSync(this.staged);
+    if (!this.migrate && (pending || relaunch) && this.applyLater(pending, relaunch)) return pending;
+    const swapped = pending && this.swap();
     if (relaunch) {
       try {
         app.releaseSingleInstanceLock();
@@ -174,6 +182,54 @@ export class PortableUpdater {
       }
     }
     return swapped;
+  }
+
+  /** Starts the helper that swaps (when `swap`) and relaunches after Atelier and its launcher exit. False: it didn't start. */
+  private applyLater(swap: boolean, relaunch: boolean): boolean {
+    const plan: SwapPlan = {
+      exe: this.exe,
+      staged: swap ? this.staged : null,
+      stagedVersion: this.stagedVersion,
+      old: this.old,
+      version: this.ready ?? '',
+      // The launcher started this process and waits for it (ExecWait).
+      waitPid: process.ppid || null,
+      relaunch,
+      logFile: logFile(),
+    };
+    const powershell = join(
+      process.env.SystemRoot ?? 'C:\\Windows',
+      'System32',
+      'WindowsPowerShell',
+      'v1.0',
+      'powershell.exe',
+    );
+    // spawn reports a missing exe only later, through 'error': check now so the caller can fall back.
+    if (!existsSync(powershell)) {
+      log.error(`update helper: ${powershell} not found`);
+      return false;
+    }
+    try {
+      const child = spawn(
+        powershell,
+        [
+          '-NoProfile',
+          '-NonInteractive',
+          '-WindowStyle',
+          'Hidden',
+          '-EncodedCommand',
+          Buffer.from(swapScript(plan), 'utf16le').toString('base64'),
+        ],
+        { cwd: this.dir, detached: true, stdio: 'ignore', windowsHide: true },
+      );
+      child.on('error', (err) => log.error('update helper failed', err));
+      child.unref();
+      log.info(swap ? `update ${this.ready ?? '?'} handed to the helper` : 'relaunch handed to the helper');
+      return true;
+    } catch (err) {
+      log.error('could not start the update helper', err);
+      return false;
+    }
   }
 
   private swap(): boolean {
@@ -244,6 +300,14 @@ async function forgetInstall(uninstaller: string): Promise<boolean> {
   } catch (err) {
     log.warn('could not remove the old setup from installed apps', err);
     return false;
+  }
+}
+
+function logFile(): string | null {
+  try {
+    return log.transports.file.getFile().path || null;
+  } catch {
+    return null;
   }
 }
 
