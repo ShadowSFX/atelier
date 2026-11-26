@@ -31,6 +31,10 @@ export interface Dialog {
   value?: string;
   ok: string;
   danger?: boolean;
+  /** prompt: an empty answer is allowed (clearing a list). */
+  allowEmpty?: boolean;
+  /** prompt: several lines (a description). */
+  multiline?: boolean;
   resolve: (result: string | boolean | null) => void;
 }
 
@@ -178,7 +182,14 @@ export function confirmDialog(o: {
   });
 }
 
-export function promptDialog(o: { title: string; value: string; ok: string }): Promise<string | null> {
+export function promptDialog(o: {
+  title: string;
+  value: string;
+  ok: string;
+  body?: string;
+  allowEmpty?: boolean;
+  multiline?: boolean;
+}): Promise<string | null> {
   return new Promise((resolve) => {
     useApp.setState({
       dialog: { kind: 'prompt', ...o, resolve: (r) => resolve(typeof r === 'string' ? r : null) },

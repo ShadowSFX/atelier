@@ -1,6 +1,7 @@
 import {
   Dismiss12Regular,
   FolderAdd16Regular,
+  Grid16Regular,
   SplitVertical16Regular,
   WindowConsole20Regular,
 } from '@fluentui/react-icons';
@@ -11,6 +12,7 @@ import { Button, cx, IconButton } from '../../components/Button';
 import { api } from '../../lib/api';
 import { shortPath } from '../../lib/format';
 import { useApp, useT } from '../../state/app';
+import { openLibrary, useMoves } from '../../state/library';
 import { useRuntime } from '../../state/runtime';
 import {
   activeProject,
@@ -78,6 +80,10 @@ function PaneSlot({ project, index, weight }: { project: Project; index: number;
   const home = useApp((st) => st.home);
   const body = useRef<HTMLDivElement>(null);
   const [ctrl, setCtrl] = useState<TerminalController | null>(null);
+  const moving = useMoves((m) => {
+    const p = m[project.id];
+    return !!p && !['waiting', 'done', 'failed', 'cancelled'].includes(p.phase);
+  });
   const starting = useRuntime((st) => {
     const rt = st.terminals[column.terminalId];
     return !rt || ((rt.status === 'starting' || rt.status === 'running') && !rt.ready);
@@ -120,7 +126,11 @@ function PaneSlot({ project, index, weight }: { project: Project; index: number;
       </div>
       <div ref={body} className={s.body}>
         {ctrl && <SearchBar c={ctrl} />}
-        {starting && <div className={s.starting}>{t('term.starting', term?.name ?? '')}</div>}
+        {moving ? (
+          <div className={s.starting}>{t('move.paneMoving')}</div>
+        ) : (
+          starting && <div className={s.starting}>{t('term.starting', term?.name ?? '')}</div>
+        )}
         {dragging && <DropLayer index={index} full={columns >= MAX_COLUMNS} />}
       </div>
     </section>
@@ -185,10 +195,16 @@ function NoProject() {
       <div className={s.emptyCard}>
         <h1 className={s.emptyTitle}>{t('projects.empty.title')}</h1>
         <p className={s.emptyText}>{t('projects.empty.body')}</p>
-        <Button variant="primary" onClick={() => void pickAndAddProject()}>
-          <FolderAdd16Regular />
-          {t('projects.add')}
-        </Button>
+        <div className={s.emptyActions}>
+          <Button variant="primary" onClick={() => openLibrary(true)}>
+            <Grid16Regular />
+            {t('library.openLibrary')}
+          </Button>
+          <Button onClick={() => void pickAndAddProject()}>
+            <FolderAdd16Regular />
+            {t('projects.add')}
+          </Button>
+        </div>
         <span className={s.emptyHint}>{t('projects.empty.drop')}</span>
       </div>
     </div>

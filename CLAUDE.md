@@ -27,7 +27,8 @@ Atelier terminal talk only to the sessions of their own project (the "hub").
 - `src/main` — services composed by hand in `index.ts`: `pty/PtyManager` (batching + flow control), `pty/profiles`,
   `shell/integration` + `shell/scripts/*` (powerline prompt + OSC 133/7/633 + `claude` wrapper per shell),
   `hub/` (HubServer + Delivery), `claude/integration` (per-session `--settings`/`--mcp-config` files), `stats/`,
-  `store/` (atomic JSON + snapshots), `clipboard.ts`, `updater.ts`, `window.ts`.
+  `store/` (atomic JSON + snapshots), `clipboard.ts`, `updater.ts`, `window.ts`, `library/` (project library:
+  `LibraryService` owns `library.json`, local analysis + Claude descriptions via `claude -p`; `move.ts` moves folders).
 - `src/agent` — run by Claude Code with `ELECTRON_RUN_AS_NODE=1` (Atelier's exe acts as node): `mcp.ts` (atelier_*
   tools), `hook.ts` (session state).
 - `src/preload` — typed `window.atelier` API; the PTY MessagePort is handed to the page with window.postMessage.
@@ -54,4 +55,9 @@ Atelier terminal talk only to the sessions of their own project (the "hub").
 - npm 11 gates install scripts: new native deps must be added to `allowScripts` in package.json.
 - Electron 45's `clipboard` is async (web-style `read()/readText()`).
 - Colors only through CSS variables in `styles/tokens.css` (RDMan's tokens); UI text only through `t()/useT()`.
+- Project library: main owns `library.json` (renderer sends `LibraryOp`s); an open tab is a workspace Project with its
+  entry's id; a closed tab's terminals live in `entry.remembered` (their snapshots are kept). Moves are driven by main
+  (`library/move.ts`, journaled in `move-journal.json`): stop the terminals inside, rename (or copy + verify across
+  drives), then Claude data, git worktrees, rebase and restart. Descriptions are off in throwaway profiles
+  (`ATELIER_USER_DATA`) unless `ATELIER_E2E_CLAUDE`.
 - Commit messages: no co-author trailer.

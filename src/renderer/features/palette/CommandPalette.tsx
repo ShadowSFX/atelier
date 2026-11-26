@@ -2,6 +2,7 @@ import {
   Add16Regular,
   ArrowSync16Regular,
   FolderAdd16Regular,
+  Grid16Regular,
   Search16Regular,
   Settings16Regular,
   SplitVertical16Regular,
@@ -11,9 +12,11 @@ import { cx } from '../../components/Button';
 import { LAUNCHERS } from '@shared/launchers';
 import { shortPath } from '../../lib/format';
 import { checkForUpdates, useApp, useT } from '../../state/app';
+import { openLibrary, useLibrary } from '../../state/library';
 import {
   activateProject,
   newTerminalInActive,
+  openFromLibrary,
   pickAndAddProject,
   selectTerminal,
   splitActive,
@@ -47,6 +50,7 @@ export function CommandPalette() {
 function Palette() {
   const t = useT();
   const projects = useWorkspace((w) => w.projects);
+  const library = useLibrary((l) => l.entries);
   const home = useApp((st) => st.home);
   const [query, setQuery] = useState('');
   const [index, setIndex] = useState(0);
@@ -73,10 +77,34 @@ function Palette() {
         sub: p.path,
         kind: t('palette.project'),
         color: p.color,
-        run: () => activateProject(p.id),
+        run: () => {
+          activateProject(p.id);
+          openLibrary(false);
+        },
+      });
+    }
+    // Library projects that aren't open: Enter opens them as a tab.
+    const open = new Set(projects.map((p) => p.id));
+    for (const e of library) {
+      if (open.has(e.id) || e.missing || e.status === 'archived') continue;
+      out.push({
+        key: 'lib:' + e.id,
+        title: e.name,
+        sub: shortPath(e.path, home),
+        kind: t('palette.library'),
+        color: e.color,
+        run: () => void openFromLibrary(e.id),
       });
     }
     out.push(
+      {
+        key: 'a:library',
+        title: t('library.title'),
+        sub: 'Ctrl+Shift+L',
+        kind: t('palette.action'),
+        icon: <Grid16Regular />,
+        run: () => openLibrary(true),
+      },
       {
         key: 'a:new',
         title: t('terminals.new'),
@@ -145,7 +173,7 @@ function Palette() {
       });
     }
     return out;
-  }, [projects, t, home]);
+  }, [projects, library, t, home]);
 
   const words = query.toLowerCase().split(/\s+/).filter(Boolean);
   const shown = entries.filter((e) => matches(e, words)).slice(0, 60);

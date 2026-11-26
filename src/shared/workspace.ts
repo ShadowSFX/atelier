@@ -95,6 +95,28 @@ const RawProject = z.object({
 });
 const RawColumn = z.object({ terminalId: Id, weight: z.number().positive().catch(1) });
 
+/** Valid terminals of a raw list (a closed project's remembered setup); unknown and repeated ids are dropped. */
+export function parseTerminals(raw: unknown, seen = new Set<string>()): TerminalSpec[] {
+  const out: TerminalSpec[] = [];
+  for (const t of Array.isArray(raw) ? (raw as unknown[]) : []) {
+    const tr = RawTerminal.safeParse(t);
+    if (!tr.success || seen.has(tr.data.id)) continue;
+    seen.add(tr.data.id);
+    out.push(tr.data);
+  }
+  return out;
+}
+
+/** A raw layout (columns + active) made valid for `terminals`. */
+export function parseLayout(raw: unknown, terminals: readonly { id: string }[]): ProjectLayout {
+  const o = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
+  const columns = (Array.isArray(o.columns) ? (o.columns as unknown[]) : []).flatMap((c) => {
+    const cr = RawColumn.safeParse(c);
+    return cr.success ? [cr.data] : [];
+  });
+  return normalizeLayout({ columns, active: typeof o.active === 'number' ? o.active : 0 }, terminals);
+}
+
 export function parseWorkspace(raw: unknown): Workspace {
   const obj = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
   const projects: Project[] = [];

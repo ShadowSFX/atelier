@@ -2,21 +2,23 @@
 import { dataInfo } from './dataDir';
 import { existsSync, statSync, writeFileSync } from 'node:fs';
 import { homedir, hostname } from 'node:os';
-import { join, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import type { BrowserWindow } from 'electron';
 import { app, dialog, MessageChannelMain, nativeTheme, shell } from 'electron';
 import { QUIT_KILL_WAIT_MS } from '@shared/constants';
+import { resolveLang } from '@shared/i18n';
 import { parseSettings, type Settings } from '@shared/settings';
 import { liveUsage, type ClaudeUsage } from '@shared/usage';
 import { isSessionId, parseWorkspace, type Workspace } from '@shared/workspace';
 import { writeClaudeFiles, type ClaudeFiles } from './claude/integration';
 import { claudeRunner, createResumePreparer } from './claude/background';
-import { listClaudeSessions } from './claude/sessions';
+import { claudeConfigDir, listClaudeSessions } from './claude/sessions';
 import { UsageService } from './claude/usage';
 import { ClipboardService } from './clipboard';
 import { Delivery } from './hub/Delivery';
 import { HubServer } from './hub/HubServer';
+import { startLibrary } from './library/register';
 import { handle, send, setTrustedOrigin } from './ipc';
 import { log } from './log';
 import { Notifier, registerAppId } from './notifier';
@@ -231,6 +233,32 @@ async function main(): Promise<void> {
   );
   const updater = startUpdater((s) => send(win, 'update:status', s));
 
+  // ───────────── Project library ─────────────
+  const { library, mover } = await startLibrary({
+    userData,
+    workspace: { get: () => workspace.get(), set: (ws) => workspace.set(ws) },
+    send: (channel, ...args) => send(win, channel, ...args),
+    claudeExe: findClaude,
+    lang: () => resolveLang(settings.get().language, app.getLocale()),
+    protectedPaths: () =>
+      [
+        homedir(),
+        userData,
+        dataInfo.dir,
+        process.env.PORTABLE_EXECUTABLE_DIR ?? '',
+        dirname(process.execPath),
+        app.getAppPath(),
+        claudeConfigDir(),
+      ].filter(Boolean),
+    running: (id) => ptys.has(id),
+    busy: (ids) => stats.busy(ids),
+    foreground: (ids) => stats.foreground(ids),
+    claudeState: (id) => delivery.claudeState(id),
+    kill: (id) => killTerminal(id),
+    settled: () => ptys.settled(),
+    git: () => which('git'),
+  });
+
   // ───────────── Window ─────────────
   const dark = nativeTheme.shouldUseDarkColors;
   win = createMainWindow(userData, dark);
@@ -289,6 +317,7 @@ async function main(): Promise<void> {
     workspace.flushPending();
     usage.flushPending();
     usage.stop();
+    library.stop();
     killAll();
     hub.stop();
     notifier.closeAll();
@@ -316,7 +345,11 @@ async function main(): Promise<void> {
   }));
   handle('workspace:load', () => workspace.get());
   handle('workspace:save', (ws) => {
-    if (!quitting) workspace.set(parseWorkspace(ws));
+    if (quitting) return;
+    // A move the renderer hasn't applied yet: its save still has the old paths.
+    const next = mover.rebaseIncoming(parseWorkspace(ws));
+    workspace.set(next);
+    library.reconcile(next);
   });
   handle('settings:load', () => settings.get());
   handle('settings:save', (patch) => {
@@ -393,5 +426,12 @@ async function main(): Promise<void> {
   if (devUrl) await win.loadURL(devUrl);
   else await win.loadFile(join(__dirname, '../renderer/index.html'));
 
-  snapshots.prune(new Set(workspace.get().projects.flatMap((p) => p.terminals.map((t) => t.id))));
+  // Closed projects keep their terminals' snapshots (reopening them restores the screens).
+  snapshots.prune(
+    new Set([
+      ...workspace.get().projects.flatMap((p) => p.terminals.map((t) => t.id)),
+      ...library.rememberedTerminalIds(),
+    ]),
+  );
+  library.start();
 }

@@ -14,6 +14,11 @@ const EVENTS = new Set<keyof Events>([
   'terminal:set-title',
   'claude:session',
   'claude:usage',
+  'library:changed',
+  'move:progress',
+  'move:suspend',
+  'move:committed',
+  'move:aborted',
 ]);
 
 const api: AtelierApi = {

@@ -142,6 +142,27 @@ export class StatsService {
     return out;
   }
 
+  /** What runs in each terminal (its newest non-shell descendant's name, null when only the shell runs). */
+  foreground(terminalIds: string[]): Map<string, string | null> {
+    const out = new Map<string, string | null>();
+    if (!this.sampler) return out;
+    const shells = this.shellPids();
+    const list = this.sampler.list();
+    for (const id of terminalIds) {
+      const pid = shells.get(id);
+      if (!pid) continue;
+      const shellName = (list.get(pid)?.name ?? '').toLowerCase();
+      const names = descendants(list, pid)
+        .filter((p) => p !== pid)
+        .map((p) => list.get(p)?.name ?? '')
+        .filter((n) => n && !isPlumbing(n) && n.toLowerCase() !== shellName);
+      // The shell's first non-shell descendant is the command the user started.
+      const first = names[0];
+      out.set(id, first ? first.replace(/\.exe$/i, '') : null);
+    }
+    return out;
+  }
+
   /** Pids of what runs inside each terminal besides the shell (for "close anyway?" confirmations). */
   busy(terminalIds: string[]): string[] {
     if (!this.sampler) return [];

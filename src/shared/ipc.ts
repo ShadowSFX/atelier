@@ -2,6 +2,8 @@ import type { ClaudeSessionInfo } from './launchers';
 import type { NotifyKind } from './notify';
 import type { Settings, SettingsPatch } from './settings';
 import type { Profile, ShellKind } from './shell';
+import type { Library, LibraryEntry, LibraryOp, LocalFacts } from './library';
+import type { MovePlan, MoveProgress } from './move';
 import type { ClaudeUsage } from './usage';
 import type { Workspace } from './workspace';
 
@@ -168,6 +170,46 @@ export interface Invoke {
   'app:ready-to-quit': (restart?: boolean) => void;
   /** Checks for an update now (the answer arrives as 'update:status'). */
   'update:check': () => void;
+
+  // ───────────── Project library ─────────────
+  'library:load': () => Library;
+  /** Main validates and applies the operation, saves, and broadcasts 'library:changed'. */
+  'library:update': (op: LibraryOp) => Library;
+  /** Adds folders (existing entries come back as they are); new ones are analyzed and queued for Claude. */
+  'library:add': (paths: string[], collectionId?: string | null) => LibraryEntry[];
+  /** Re-reads stale local facts (`force`: all of them) and checks which folders went missing. */
+  'library:refresh': (ids?: string[], force?: boolean) => void;
+  /** Asks Claude to describe these entries again. */
+  'library:describe': (ids: string[]) => void;
+  /** Points a missing entry at the folder the user found. Null: not a folder, or another entry has it. */
+  'library:locate': (id: string, path: string) => LibraryEntry | null;
+  /** The subfolders of `dir`, analyzed, for "Scan a folder". */
+  'library:scan': (dir: string) => ScanItem[];
+  /** Free and total space of the drives of these folders (library folders). */
+  'library:disk': (paths: string[]) => DiskInfo[];
+  /** What moving the entry's folder to `destination` (the final path) would do. */
+  'move:plan': (entryId: string, destination: string) => MovePlan;
+  /** Starts a planned move (progress arrives as 'move:progress'). `wait`: until Claude sessions are idle. */
+  'move:start': (planId: string, wait: boolean) => boolean;
+  'move:cancel': (moveId: string) => void;
+  /** The renderer saved the snapshots of the terminals 'move:suspend' named and won't restart them. */
+  'move:suspended': (moveId: string) => void;
+  /** The renderer rebased its workspace after 'move:committed' (and saved it). */
+  'move:applied': (moveId: string) => void;
+}
+
+export interface ScanItem {
+  path: string;
+  name: string;
+  facts: LocalFacts;
+  /** Already in the library (under this entry id). */
+  entryId: string | null;
+}
+
+export interface DiskInfo {
+  path: string;
+  free: number;
+  total: number;
 }
 
 export interface Events {
@@ -187,6 +229,14 @@ export interface Events {
   'claude:session': (terminalId: string, session: { sessionId: string; codeMode: boolean }) => void;
   /** The Claude plan's usage limits changed (a new report, or a window reset). */
   'claude:usage': (u: ClaudeUsage | null) => void;
+  'library:changed': (lib: Library) => void;
+  'move:progress': (p: MoveProgress) => void;
+  /** A move is about to stop these terminals: save their snapshots, don't show them as exited, then ack. */
+  'move:suspend': (moveId: string, terminalIds: string[]) => void;
+  /** The folder moved: rebase the workspace (oldPath → newPath), ack with 'move:applied', restart the terminals. */
+  'move:committed': (moveId: string, oldPath: string, newPath: string, terminalIds: string[]) => void;
+  /** The move didn't happen: start the suspended terminals again where they were. */
+  'move:aborted': (moveId: string, terminalIds: string[]) => void;
 }
 
 /** Messages on the PTY MessagePort. */

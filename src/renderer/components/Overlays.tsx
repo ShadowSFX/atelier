@@ -43,7 +43,7 @@ export function DialogHost() {
 function DialogView({ dialog }: { dialog: Dialog }) {
   const t = useT();
   const [value, setValue] = useState(dialog.value ?? '');
-  const input = useRef<HTMLInputElement>(null);
+  const input = useRef<HTMLInputElement & HTMLTextAreaElement>(null);
   const okRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
@@ -89,15 +89,31 @@ function DialogView({ dialog }: { dialog: Dialog }) {
             {dialog.title}
           </h2>
           {dialog.body && <p className={s.dialogText}>{dialog.body}</p>}
-          {dialog.kind === 'prompt' && (
-            <input
-              ref={input}
-              className={s.input}
-              value={value}
-              spellCheck={false}
-              onChange={(e) => setValue(e.target.value)}
-            />
-          )}
+          {dialog.kind === 'prompt' &&
+            (dialog.multiline ? (
+              <textarea
+                ref={input}
+                className={cx(s.input, s.textarea)}
+                value={value}
+                rows={5}
+                onChange={(e) => setValue(e.target.value)}
+                onKeyDown={(e) => {
+                  // Enter adds a line; Ctrl+Enter saves.
+                  if (e.key === 'Enter' && e.ctrlKey) {
+                    e.preventDefault();
+                    submit();
+                  }
+                }}
+              />
+            ) : (
+              <input
+                ref={input}
+                className={s.input}
+                value={value}
+                spellCheck={false}
+                onChange={(e) => setValue(e.target.value)}
+              />
+            ))}
         </div>
         <div className={s.dialogFooter}>
           <Button onClick={() => finish(null)}>{t('common.cancel')}</Button>
@@ -105,7 +121,7 @@ function DialogView({ dialog }: { dialog: Dialog }) {
             ref={okRef}
             type="submit"
             variant={dialog.danger ? 'danger' : 'primary'}
-            disabled={dialog.kind === 'prompt' && !value.trim()}
+            disabled={dialog.kind === 'prompt' && !dialog.allowEmpty && !value.trim()}
           >
             {dialog.ok}
           </Button>

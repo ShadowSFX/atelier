@@ -14,7 +14,8 @@ export type Shortcut =
   | 'next-pane'
   | 'prev-pane'
   | 'settings'
-  | 'add-project';
+  | 'add-project'
+  | 'library';
 
 export function appShortcut(e: KeyboardEvent): Shortcut | null {
   const { ctrlKey: ctrl, shiftKey: shift, altKey: alt } = e;
@@ -30,6 +31,8 @@ export function appShortcut(e: KeyboardEvent): Shortcut | null {
         return 'close-terminal';
       case 'o':
         return 'add-project';
+      case 'l':
+        return 'library';
       case 'Tab':
         return 'prev-terminal';
     }

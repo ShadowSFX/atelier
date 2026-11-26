@@ -12,11 +12,26 @@
   -webkit-app-region: no-drag;
 }
 
+/* The logo is the library's button: the "home" of every project. */
 .brand {
   display: grid;
   place-items: center;
   flex: none;
-  width: 46px;
+  width: 38px;
+  height: 30px;
+  margin: 0 4px 0 6px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--r-md);
+  background: transparent;
+}
+.brand:hover {
+  background: var(--bg-hover);
+}
+.brandOn,
+.brandOn:hover {
+  border-color: var(--line);
+  background: var(--bg-content);
 }
 
 .tabs {

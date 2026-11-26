@@ -8,7 +8,8 @@ import { App } from './App';
 import { loadApp } from './state/app';
 import { initNotifications } from './state/notifications';
 import { initRuntimeEvents } from './state/runtime';
-import { loadWorkspace } from './state/workspace';
+import { loadLibrary, openLibrary } from './state/library';
+import { loadWorkspace, useWorkspace } from './state/workspace';
 import { startSnapshotTimer } from './terminal/registry';
 
 async function boot(): Promise<void> {
@@ -20,7 +21,10 @@ async function boot(): Promise<void> {
       <App />
     </StrictMode>,
   );
+  await loadLibrary();
   await loadWorkspace();
+  // Nothing open: start on the library.
+  if (useWorkspace.getState().projects.length === 0) openLibrary();
   startSnapshotTimer();
 }
 

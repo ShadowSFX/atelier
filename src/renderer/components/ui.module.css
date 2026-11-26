@@ -294,6 +294,14 @@
   width: 100%;
   margin-top: 14px;
 }
+.textarea {
+  height: auto;
+  min-height: 96px;
+  padding: 8px 10px;
+  line-height: 19px;
+  resize: vertical;
+  font: inherit;
+}
 .dialogFooter {
   display: flex;
   justify-content: flex-end;

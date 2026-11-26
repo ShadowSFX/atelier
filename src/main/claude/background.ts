@@ -2,8 +2,16 @@ import { execFile, type ChildProcess } from 'node:child_process';
 import { parseBackgroundSessions, type BackgroundSession } from '@shared/launchers';
 import { log } from '../log';
 
-/** Runs Claude Code with `args` and resolves with its stdout (rejects on failure or timeout). */
-export type ClaudeRunner = (args: string[], timeoutMs: number) => Promise<string>;
+export interface RunOptions {
+  /** Written to stdin, then stdin is closed (a prompt never goes on the command line). */
+  input?: string;
+  cwd?: string;
+  /** Aborting kills the whole tree and rejects. */
+  signal?: AbortSignal;
+}
+
+/** Runs Claude Code with `args` and resolves with its stdout (rejects on failure, timeout or abort). */
+export type ClaudeRunner = (args: string[], timeoutMs: number, opts?: RunOptions) => Promise<string>;
 
 const LIST_TIMEOUT_MS = 5_000;
 const STOP_TIMEOUT_MS = 15_000;
@@ -17,23 +25,43 @@ const LIST_REUSE_MS = 3_000;
  */
 export function claudeRunner(exe: string, env: NodeJS.ProcessEnv): ClaudeRunner {
   const shell = /\.(cmd|bat)$/i.test(exe);
-  return (args, timeoutMs) =>
+  return (args, timeoutMs, opts = {}) =>
     new Promise((resolve, reject) => {
       let done = false;
+      if (opts.signal?.aborted) return reject(new Error('cancelled'));
       // Through a shell, one command line (Node deprecates args with shell): the arguments are fixed words and a hex
       // id (isBackgroundId), nothing to quote.
       const child = execFile(
         shell ? [`"${exe}"`, ...args].join(' ') : exe,
         shell ? [] : args,
-        { windowsHide: true, env, shell, maxBuffer: 4 * 1024 * 1024 },
-        (err, stdout) => {
+        {
+          windowsHide: true,
+          env,
+          shell,
+          maxBuffer: 4 * 1024 * 1024,
+          ...(opts.cwd ? { cwd: opts.cwd } : {}),
+        },
+        (err, stdout, stderr) => {
           if (done) return;
           done = true;
           clearTimeout(timer);
-          if (err) reject(err);
+          opts.signal?.removeEventListener('abort', onAbort);
+          if (err) reject(Object.assign(err, { stdout: String(stdout), stderr: String(stderr) }));
           else resolve(String(stdout));
         },
       );
+      const onAbort = () => {
+        if (done) return;
+        done = true;
+        clearTimeout(timer);
+        killTree(child);
+        reject(new Error('cancelled'));
+      };
+      opts.signal?.addEventListener('abort', onAbort, { once: true });
+      if (opts.input !== undefined) {
+        child.stdin?.on('error', () => undefined); // the process may exit before reading everything
+        child.stdin?.end(opts.input, 'utf8');
+      }
       const timer = setTimeout(() => {
         if (done) return;
         done = true;

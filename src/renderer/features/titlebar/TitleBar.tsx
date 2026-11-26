@@ -1,5 +1,6 @@
 import {
   Add16Regular,
+  Delete16Regular,
   Dismiss12Regular,
   Folder16Regular,
   FolderOpen16Regular,
@@ -13,6 +14,8 @@ import type { Project } from '@shared/workspace';
 import { cx, IconButton } from '../../components/Button';
 import { CLAUDE_LABEL, ClaudeGlyph } from '../../components/ClaudeGlyph';
 import { Logo } from '../../components/Logo';
+import { LIBRARY_DRAG } from '../library/ProjectCard';
+import { openLibrary, toggleLibrary, useLibraryView } from '../../state/library';
 import { ColorSwatches } from '../../components/Overlays';
 import { api } from '../../lib/api';
 import { openMenu, promptDialog, t, useApp, useT } from '../../state/app';
@@ -22,6 +25,7 @@ import {
   addProject,
   closeProject,
   moveProject,
+  openFromLibrary,
   pickAndAddProject,
   renameProject,
   setProjectColor,
@@ -54,8 +58,13 @@ function projectMenu(p: Project, x: number, y: number): void {
     {
       label: t('projects.close'),
       icon: <Dismiss12Regular />,
-      danger: true,
       run: () => void closeProject(p.id),
+    },
+    {
+      label: t('projects.closeForget'),
+      icon: <Delete16Regular />,
+      danger: true,
+      run: () => void closeProject(p.id, { forget: true }),
     },
   ]);
 }
@@ -100,13 +109,22 @@ function ProjectTab({
         e.dataTransfer.effectAllowed = 'move';
       }}
       onDragOver={(e) => {
-        if (!e.dataTransfer.types.includes(PROJECT_DRAG)) return;
+        if (!e.dataTransfer.types.includes(PROJECT_DRAG) && !e.dataTransfer.types.includes(LIBRARY_DRAG))
+          return;
         e.preventDefault();
         const r = e.currentTarget.getBoundingClientRect();
         onDropIndex(e.clientX < r.left + r.width / 2 ? index : index + 1);
       }}
-      onPointerDown={(e) => e.button === 0 && activateProject(p.id)}
-      onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && activateProject(p.id)}
+      onPointerDown={(e) => {
+        if (e.button !== 0) return;
+        activateProject(p.id);
+        openLibrary(false);
+      }}
+      onKeyDown={(e) => {
+        if (e.key !== 'Enter' && e.key !== ' ') return;
+        activateProject(p.id);
+        openLibrary(false);
+      }}
       onAuxClick={(e) => e.button === 1 && void closeProject(p.id)}
       onContextMenu={(e) => {
         e.preventDefault();
@@ -137,13 +155,18 @@ export function TitleBar() {
   const t = useT();
   const projects = useWorkspace((w) => w.projects);
   const activeId = useWorkspace((w) => w.activeProjectId);
+  const library = useLibraryView((v) => v.open);
   const [dropIndex, setDropIndex] = useState<number | null>(null);
 
   const onDrop = (e: React.DragEvent) => {
     const id = e.dataTransfer.getData(PROJECT_DRAG);
+    const fromLibrary = e.dataTransfer.getData(LIBRARY_DRAG);
     if (id && dropIndex !== null) {
       const from = projects.findIndex((p) => p.id === id);
       moveProject(id, from < dropIndex ? dropIndex - 1 : dropIndex);
+    } else if (fromLibrary) {
+      // A library card dropped on the tabs opens there (or moves its tab there when it is already open).
+      void openFromLibrary(fromLibrary, dropIndex ?? projects.length);
     } else {
       // A folder dropped from the file manager becomes a project.
       for (const f of e.dataTransfer.files) {
@@ -158,22 +181,37 @@ export function TitleBar() {
     <header
       className={s.bar}
       onDragOver={(e) => {
-        if (e.dataTransfer.types.includes(PROJECT_DRAG) || e.dataTransfer.types.includes('Files'))
+        if (
+          e.dataTransfer.types.includes(PROJECT_DRAG) ||
+          e.dataTransfer.types.includes(LIBRARY_DRAG) ||
+          e.dataTransfer.types.includes('Files')
+        ) {
           e.preventDefault();
+          // Over the empty part of the bar: the end of the tabs.
+          if (e.dataTransfer.types.includes(LIBRARY_DRAG) && e.target === e.currentTarget)
+            setDropIndex(projects.length);
+        }
       }}
       onDragLeave={(e) => !e.currentTarget.contains(e.relatedTarget as Node) && setDropIndex(null)}
       onDrop={onDrop}
     >
-      <div className={s.brand} title="Atelier">
+      <button
+        type="button"
+        className={cx(s.brand, library && s.brandOn)}
+        title={`${t('library.title')} (Ctrl+Shift+L)`}
+        aria-label={t('library.title')}
+        aria-pressed={library}
+        onClick={toggleLibrary}
+      >
         <Logo />
-      </div>
+      </button>
       <div className={s.tabs} role="tablist" aria-label="Projects">
         {projects.map((p, i) => (
           <ProjectTab
             key={p.id}
             p={p}
             index={i}
-            active={p.id === activeId}
+            active={p.id === activeId && !library}
             dropBefore={dropIndex === i}
             onDropIndex={setDropIndex}
           />

@@ -3,6 +3,9 @@ import { cx } from './components/Button';
 import { ContextMenu } from './components/ContextMenu';
 import { DialogHost, Toasts } from './components/Overlays';
 import { CommandPalette } from './features/palette/CommandPalette';
+import { ImportDialog } from './features/library/ImportDialog';
+import { LibraryNav, LibraryView } from './features/library/LibraryView';
+import { MoveDialog } from './features/library/MoveDialog';
 import { PaneGrid } from './features/panes/PaneGrid';
 import { SessionPicker } from './features/sessions/SessionPicker';
 import { SettingsDialog } from './features/settings/SettingsDialog';
@@ -11,6 +14,7 @@ import { StatusBar } from './features/statusbar/StatusBar';
 import { TitleBar } from './features/titlebar/TitleBar';
 import { api } from './lib/api';
 import { saveSettings, useApp } from './state/app';
+import { toggleLibrary, useLibraryView } from './state/library';
 import { closeApp } from './state/quit';
 import {
   activeProject,
@@ -44,6 +48,7 @@ const SHORTCUTS: Record<Shortcut, () => void> = {
   'prev-pane': () => cycleColumn(-1),
   settings: () => useApp.setState({ settingsOpen: true }),
   'add-project': () => void pickAndAddProject(),
+  library: toggleLibrary,
 };
 
 /** Wires main-process events and store reactions that are not tied to one component. */
@@ -59,7 +64,12 @@ function useAppEffects(): void {
         (e.ctrlKey && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'k' ? 'palette' : null);
       if (!sc) return;
       const st = useApp.getState();
-      if ((st.dialog || st.settingsOpen || st.sessionsOpen) && sc !== 'settings') return;
+      const lv = useLibraryView.getState();
+      if (
+        (st.dialog || st.settingsOpen || st.sessionsOpen || lv.moving || lv.importOpen) &&
+        sc !== 'settings'
+      )
+        return;
       e.preventDefault();
       runShortcut(sc);
     };
@@ -161,18 +171,21 @@ function SidebarSplitter() {
 
 export function App() {
   useAppEffects();
+  const library = useLibraryView((v) => v.open);
   return (
     <div className={s.app}>
       <TitleBar />
       <div className={s.body}>
-        <Sidebar />
+        {library ? <LibraryNav /> : <Sidebar />}
         <SidebarSplitter />
-        <PaneGrid />
+        {library ? <LibraryView /> : <PaneGrid />}
       </div>
       <StatusBar />
       <CommandPalette />
       <SessionPicker />
       <SettingsDialog />
+      <MoveDialog />
+      <ImportDialog />
       <DialogHost />
       <ContextMenu />
       <Toasts />

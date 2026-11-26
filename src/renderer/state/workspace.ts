@@ -1,6 +1,5 @@
 import { create } from 'zustand';
 import {
-  baseName,
   closeColumn as closeColumnOp,
   dropTerminal as dropTerminalOp,
   EMPTY_WORKSPACE,
@@ -16,10 +15,12 @@ import {
   type Workspace,
 } from '@shared/workspace';
 import { MAX_COLUMNS } from '@shared/constants';
+import type { LibraryEntry } from '@shared/library';
 import { isSessionId, launcher, type LauncherId } from '@shared/launchers';
 import { api } from '../lib/api';
-import { disposeTerminal, focusTerminal, startTerminal } from '../terminal/registry';
+import { disposeTerminal, focusTerminal, getController, startTerminal } from '../terminal/registry';
 import { confirmDialog, t, toast, useApp } from './app';
+import { entryById, op, openLibrary, useLibrary } from './library';
 
 export const useWorkspace = create<Workspace>(() => EMPTY_WORKSPACE);
 
@@ -91,7 +92,8 @@ export function activateProject(id: string): void {
   if (focused) focusTerminal(focused);
 }
 
-export async function addProject(path: string): Promise<void> {
+/** Adds a folder to the library (if it isn't there yet) and opens it as a tab. */
+export async function addProject(path: string, atIndex?: number): Promise<void> {
   const info = await api.invoke('fs:info', path);
   if (!info.exists || !info.isDirectory) {
     toast(info.exists ? t('projects.notFolder') : t('projects.missing', path), 'error');
@@ -101,18 +103,66 @@ export async function addProject(path: string): Promise<void> {
   const existing = useWorkspace.getState().projects.find((p) => pathIdentity(p.path) === key);
   if (existing) {
     activateProject(existing.id);
+    useApp.setState({ paletteOpen: false });
+    openLibrary(false);
     return;
   }
+  const [entry] = await api.invoke('library:add', [path]);
+  if (!entry) {
+    toast(t('projects.missing', path), 'error');
+    return;
+  }
+  await openFromLibrary(entry.id, atIndex, entry);
+}
+
+/**
+ * Opens a library project as a tab (at `atIndex`, else at the end). A project closed before comes back with its
+ * terminals (same ids: their screens and Claude sessions are restored); a new one starts with a shell.
+ */
+export async function openFromLibrary(id: string, atIndex?: number, known?: LibraryEntry): Promise<void> {
+  openLibrary(false);
+  const ws = useWorkspace.getState();
+  if (ws.projects.some((p) => p.id === id)) {
+    if (atIndex !== undefined) {
+      const from = ws.projects.findIndex((p) => p.id === id);
+      moveProject(id, from < atIndex ? atIndex - 1 : atIndex);
+    }
+    activateProject(id);
+    return;
+  }
+  const entry = entryById(id) ?? known ?? null;
+  if (!entry) return;
+  const info = await api.invoke('fs:info', entry.path);
+  if (!info.exists || !info.isDirectory) {
+    toast(t('library.missingFolder', entry.name, entry.path), 'error');
+    void api.invoke('library:refresh', [id]);
+    return;
+  }
+  // Opened twice meanwhile (a double click).
+  if (useWorkspace.getState().projects.some((p) => p.id === id)) return activateProject(id);
+  const sameFolder = useWorkspace
+    .getState()
+    .projects.find((p) => pathIdentity(p.path) === pathIdentity(entry.path));
+  if (sameFolder) return activateProject(sameFolder.id);
+  const remembered = entry.remembered;
   const project: Project = {
-    id: newId('p'),
-    name: baseName(path),
-    path,
-    color: null,
-    terminals: [],
-    layout: { columns: [], active: 0 },
+    id: entry.id,
+    name: entry.name,
+    path: entry.path,
+    color: entry.color,
+    terminals: remembered?.terminals ?? [],
+    layout: remembered?.layout ?? { columns: [], active: 0 },
   };
-  useWorkspace.setState((ws) => ({ projects: [...ws.projects, project], activeProjectId: project.id }));
-  newTerminal(project.id);
+  useWorkspace.setState((w) => {
+    const projects = [...w.projects];
+    const at = atIndex === undefined ? projects.length : Math.max(0, Math.min(projects.length, atIndex));
+    projects.splice(at, 0, project);
+    return { projects, activeProjectId: project.id };
+  });
+  if (remembered) void op({ op: 'remember', id, remembered: null });
+  void op({ op: 'opened', id, at: Date.now() });
+  if (project.terminals.length > 0) activateProject(project.id);
+  else newTerminal(project.id);
 }
 
 export async function pickAndAddProject(): Promise<void> {
@@ -120,18 +170,44 @@ export async function pickAndAddProject(): Promise<void> {
   if (path) await addProject(path);
 }
 
-export async function closeProject(id: string): Promise<void> {
+/**
+ * Closes a tab. The project stays in the library and remembers its terminals (reopening brings them back, screens
+ * included) unless `forget`.
+ */
+export async function closeProject(
+  id: string,
+  o: { forget?: boolean; confirm?: boolean } = {},
+): Promise<void> {
   const project = useWorkspace.getState().projects.find((p) => p.id === id);
   if (!project) return;
-  if (project.terminals.length > 0) {
+  const forget = o.forget === true;
+  if (project.terminals.length > 0 && o.confirm !== false) {
     const ok = await confirmDialog({
-      title: t('projects.closeConfirm', project.name, project.terminals.length),
-      ok: t('projects.close'),
-      danger: true,
+      title: t(
+        forget ? 'projects.forgetConfirm' : 'projects.closeConfirm',
+        project.name,
+        project.terminals.length,
+      ),
+      body: forget ? undefined : t('projects.closeBody'),
+      ok: t(forget ? 'projects.closeForget' : 'projects.close'),
+      danger: forget,
     });
     if (!ok) return;
   }
-  for (const term of project.terminals) disposeTerminal(term.id, true);
+  const inLibrary = useLibrary.getState().entries.some((e) => e.id === id);
+  if (!forget && inLibrary && project.terminals.length > 0) {
+    // Screens first (the shells stop below), then the setup itself (main saves it right away).
+    await Promise.all(
+      project.terminals.map((term) => {
+        const c = getController(term.id);
+        return c ? api.invoke('snapshot:write', term.id, c.snapshot()).catch(() => undefined) : undefined;
+      }),
+    );
+    await op({ op: 'remember', id, remembered: { terminals: project.terminals, layout: project.layout } });
+  } else if (inLibrary) {
+    await op({ op: 'remember', id, remembered: null });
+  }
+  for (const term of project.terminals) disposeTerminal(term.id, forget || !inLibrary);
   useWorkspace.setState((ws) => {
     const index = ws.projects.findIndex((p) => p.id === id);
     const projects = ws.projects.filter((p) => p.id !== id);
@@ -143,15 +219,21 @@ export async function closeProject(id: string): Promise<void> {
   });
   const next = activeProject();
   if (next) activateProject(next.id);
+  // The last tab closed: the library is the home screen.
+  else openLibrary(true);
 }
 
-export function renameProject(id: string, name: string): void {
+/** `sync`: the library entry follows (false when the library is the one asking). */
+export function renameProject(id: string, name: string, sync = true): void {
   const clean = name.trim();
-  if (clean) updateProject(id, (p) => ({ ...p, name: clean }));
+  if (!clean) return;
+  updateProject(id, (p) => ({ ...p, name: clean }));
+  if (sync && entryById(id)) void op({ op: 'rename', id, name: clean });
 }
 
-export function setProjectColor(id: string, color: string | null): void {
+export function setProjectColor(id: string, color: string | null, sync = true): void {
   updateProject(id, (p) => ({ ...p, color }));
+  if (sync && entryById(id)) void op({ op: 'color', id, color });
 }
 
 export function moveProject(id: string, toIndex: number): void {
@@ -171,6 +253,7 @@ export function cycleProject(delta: number): void {
   const i = ws.projects.findIndex((p) => p.id === ws.activeProjectId);
   const next = ws.projects[(i + delta + ws.projects.length) % ws.projects.length]!;
   activateProject(next.id);
+  openLibrary(false);
 }
 
 // ───────────── Terminals ─────────────
@@ -233,6 +316,8 @@ export function newTerminal(projectId: string, o: NewTerminalOptions = {}): stri
   });
   if (useWorkspace.getState().activeProjectId !== projectId)
     useWorkspace.setState({ activeProjectId: projectId });
+  // A new terminal is meant to be seen.
+  openLibrary(false);
   startTerminal(spec.id);
   focusTerminal(spec.id);
   return spec.id;
@@ -346,6 +431,7 @@ export function selectTerminal(id: string): void {
   const found = findTerminal(id);
   if (!found) return;
   if (useWorkspace.getState().activeProjectId !== found.project.id) activateProject(found.project.id);
+  openLibrary(false);
   setLayout(found.project.id, (l) => showTerminal(l, id));
   focusTerminal(id);
 }
