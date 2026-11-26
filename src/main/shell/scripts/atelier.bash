@@ -136,12 +136,14 @@ if [ -n "$ATELIER_POWERLINE" ]; then PS1='${__atelier_ps}'
 else PS1="$PS1"$'\001\033]133;B\007\002'; fi # the user's own prompt, with the end-of-prompt mark
 
 # `claude` inside Atelier talks to the sessions of this project only (see the Atelier hub).
+# --mcp-config takes several values: --settings after it ends that list, so a prompt or a subcommand (attach) isn't
+# read as one more config file.
 if [ -n "$ATELIER_CLAUDE_SETTINGS" ]; then
   claude() {
     case "$1" in
       mcp | config | update | doctor | install | plugin | setup-token | migrate-installer | -v | --version | -h | --help)
         command claude "$@" ;;
-      *) command claude --settings "$ATELIER_CLAUDE_SETTINGS" --mcp-config "$ATELIER_CLAUDE_MCP" "$@" ;;
+      *) command claude --mcp-config "$ATELIER_CLAUDE_MCP" --settings "$ATELIER_CLAUDE_SETTINGS" "$@" ;;
     esac
   }
 fi

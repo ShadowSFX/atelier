@@ -130,6 +130,11 @@ export interface Invoke {
   'claude:available': () => boolean;
   /** Resumable Claude sessions whose folder is the project's or one inside it, newest first. */
   'claude:sessions': (projectPath: string) => ClaudeSessionInfo[];
+  /**
+   * Before resuming a session: one still running in Claude Code's background is stopped when idle (attach = null,
+   * resume as usual) or, when busy, its short id comes back to `claude attach` to.
+   */
+  'claude:prepare-resume': (sessionId: string) => { attach: string | null };
   'term:read-reply': (reqId: number, text: string | null) => void;
   /** Shows a desktop notification; false when the system can't show one. */
   'notify:show': (n: NotifyRequest) => boolean;

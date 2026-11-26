@@ -105,12 +105,14 @@ else
   PROMPT+="%{"$'\e]133;B\a'"%}" # the user's own prompt, with the end-of-prompt mark
 fi
 
+# --mcp-config takes several values: --settings after it ends that list, so a prompt or a subcommand (attach) isn't
+# read as one more config file.
 if [[ -n $ATELIER_CLAUDE_SETTINGS ]]; then
   claude() {
     case "$1" in
       mcp | config | update | doctor | install | plugin | setup-token | migrate-installer | -v | --version | -h | --help)
         command claude "$@" ;;
-      *) command claude --settings "$ATELIER_CLAUDE_SETTINGS" --mcp-config "$ATELIER_CLAUDE_MCP" "$@" ;;
+      *) command claude --mcp-config "$ATELIER_CLAUDE_MCP" --settings "$ATELIER_CLAUDE_SETTINGS" "$@" ;;
     esac
   }
 fi

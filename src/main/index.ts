@@ -8,8 +8,9 @@ import type { BrowserWindow } from 'electron';
 import { app, dialog, MessageChannelMain, nativeTheme, shell } from 'electron';
 import { QUIT_KILL_WAIT_MS } from '@shared/constants';
 import { parseSettings, type Settings } from '@shared/settings';
-import { parseWorkspace, type Workspace } from '@shared/workspace';
+import { isSessionId, parseWorkspace, type Workspace } from '@shared/workspace';
 import { writeClaudeFiles, type ClaudeFiles } from './claude/integration';
+import { claudeRunner, createResumePreparer } from './claude/background';
 import { listClaudeSessions } from './claude/sessions';
 import { ClipboardService } from './clipboard';
 import { Delivery } from './hub/Delivery';
@@ -18,7 +19,7 @@ import { handle, send, setTrustedOrigin } from './ipc';
 import { log } from './log';
 import { Notifier, registerAppId } from './notifier';
 import { ProfileRegistry, which } from './pty/profiles';
-import { PtyManager } from './pty/PtyManager';
+import { baseEnv, PtyManager } from './pty/PtyManager';
 import { installShellScripts } from './shell/integration';
 import { StatsService } from './stats/StatsService';
 import { JsonStore } from './store/JsonStore';
@@ -341,6 +342,14 @@ async function main(): Promise<void> {
   handle('claude:sessions', (projectPath) =>
     typeof projectPath === 'string' && projectPath ? listClaudeSessions(projectPath) : [],
   );
+  let prepareResume: ((sessionId: string) => Promise<{ attach: string | null }>) | null = null;
+  handle('claude:prepare-resume', (sessionId) => {
+    if (!isSessionId(sessionId)) return { attach: null };
+    const exe = claudeExe === undefined ? (claudeExe = which('claude')) : claudeExe;
+    if (!exe) return { attach: null };
+    prepareResume ??= createResumePreparer(claudeRunner(exe, baseEnv()));
+    return prepareResume(sessionId);
+  });
   handle('notify:show', (n) => notifier.show(n));
   handle('term:read-reply', (id, text) => {
     readRequests.get(id)?.(text);

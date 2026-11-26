@@ -26,11 +26,37 @@ writeFileSync(
   join(fakeBin, 'claude.cmd'),
   [
     '@echo off',
+    'if "%1"=="agents" goto agents',
+    'if "%1"=="stop" goto stop',
     'echo FAKE-CLAUDE args=[%*] codemode=[%CLAUDE_CODE_EXPERIMENTAL_CODE_MODE%]',
-    'echo %* | findstr /c:"--resume" >nul && exit /b 0',
+    'echo %* | findstr /c:"--resume" /c:" attach " >nul && exit /b 0',
     'ping -n 300 127.0.0.1 >nul',
+    'exit /b 0',
+    // `claude agents --json` (main asks before resuming) and `claude stop <id>` (logged).
+    ':agents',
+    'type "%~dp0agents.json"',
+    'exit /b 0',
+    ':stop',
+    '>>"%~dp0stopped.txt" echo %2',
+    'exit /b 0',
   ].join('\r\n'),
 );
+// Both sessions are still running in Claude Code's background: SESSION idle (stopped, then resumed), OLD_SESSION busy
+// (attached to).
+writeFileSync(
+  join(fakeBin, 'agents.json'),
+  JSON.stringify([
+    { pid: 101, id: 'a0a0a0a0', kind: 'background', sessionId: SESSION, status: 'idle' },
+    { pid: 102, id: 'b0b0b0b0', kind: 'background', sessionId: OLD_SESSION, status: 'busy' },
+  ]),
+);
+const stoppedIds = () => {
+  try {
+    return readFileSync(join(fakeBin, 'stopped.txt'), 'utf8').split(/\s+/).filter(Boolean);
+  } catch {
+    return [];
+  }
+};
 // One earlier session of the project, for the picker (Claude's folder naming: non-alphanumerics → "-").
 const sessionDir = join(claudeConfig, 'projects', project.replace(/[^a-zA-Z0-9]/g, '-'));
 mkdirSync(sessionDir, { recursive: true });
@@ -133,7 +159,8 @@ test('launcher menu, Claude restore after a crash, session picker', async () => 
   // Power cut: the process tree dies without closing anything.
   await crash(app);
 
-  // Restart: the terminal resumes its session (Code Mode still on); the plain shell stays a shell.
+  // Restart: the terminal resumes its session (Code Mode still on); the plain shell stays a shell. The session is
+  // still running idle in Claude Code's background: it is stopped first, so the resume isn't refused.
   ({ app, page } = await launch());
   await expect.poll(async () => (await ids(page)).sort()).toEqual([claude, shell].sort());
   await waitText(
@@ -142,11 +169,13 @@ test('launcher menu, Claude restore after a crash, session picker', async () => 
     new RegExp(`FAKE-CLAUDE args=\\[[^\\]]*--resume ${SESSION}\\] codemode=\\[1\\]`),
   );
   expect(await text(page, shell!)).not.toMatch(/FAKE-CLAUDE args=\[[^\]]*--resume/);
+  expect(stoppedIds()).toEqual(['a0a0a0a0']);
   // The fake ends a resumed session at once: the shell prompt comes back and the session is no longer resumed.
   await expect.poll(() => savedTerminal(claude).claude?.active).toBe(false);
   expect(savedTerminal(claude).claude?.sessionId).toBe(SESSION);
 
-  // The picker lists the project's earlier session; choosing it resumes it in a new terminal.
+  // The picker lists the project's earlier session; choosing it opens it in a new terminal. It is busy in Claude
+  // Code's background, so the terminal attaches to it instead of stopping it.
   await page.getByRole('button', { name: /Nueva terminal con|New terminal with/ }).click();
   await page.getByRole('menuitem', { name: /Reanudar|Resume/ }).click();
   const row = page.locator(`[data-session="${OLD_SESSION}"]`);
@@ -155,11 +184,8 @@ test('launcher menu, Claude restore after a crash, session picker', async () => 
   await page.keyboard.press('Enter');
   await expect.poll(async () => (await ids(page)).length).toBe(3);
   const resumed = (await ids(page)).find((x) => x !== claude && x !== shell)!;
-  await waitText(
-    page,
-    resumed,
-    new RegExp(`FAKE-CLAUDE args=\\[[^\\]]*--resume ${OLD_SESSION}\\] codemode=\\[\\]`),
-  );
+  await waitText(page, resumed, /FAKE-CLAUDE args=\[[^\]]*attach b0b0b0b0\] codemode=\[\]/);
+  expect(stoppedIds()).toEqual(['a0a0a0a0']);
 
   // The real hook script, fed Claude's SessionStart input from inside a terminal (its env carries the hub token):
   // the session id and Code Mode (from the hook's environment) reach the workspace through the hub.

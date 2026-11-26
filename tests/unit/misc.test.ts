@@ -116,7 +116,10 @@ describe('shell scripts', () => {
       expect(s, f).toMatch(/\]7;/);
       expect(s, f).toMatch(/633;P;GitBranch=/);
       expect(s, f).toMatch(/ATELIER_CLAUDE_SETTINGS/);
-      expect(s, f).toMatch(/--mcp-config/);
+      // --mcp-config is variadic: --settings must follow it, or `claude attach <id>` / `claude "prompt"` become
+      // more config files.
+      expect(s, f).toMatch(/--mcp-config \S+ --settings \S+ /);
+      expect(s, f).not.toMatch(/--settings \S+ --mcp-config/);
     }
   });
 });

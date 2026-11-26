@@ -59,8 +59,48 @@ export function filterLaunchEnv(env: unknown): Record<string, string> {
  * The command typed into the shell. Only a validated UUID is ever added, so the same text is safe in PowerShell,
  * cmd (doskey's $*), bash, zsh and WSL, and it goes through each shell's `claude` wrapper (the hub flags).
  */
-export function claudeCommand(c: { sessionId: string | null }): string {
+export function claudeCommand(c: { sessionId: string | null }, attachId?: string | null): string {
+  if (isBackgroundId(attachId)) return `claude attach ${attachId}`;
   return isSessionId(c.sessionId) ? `claude --resume ${c.sessionId}` : 'claude';
+}
+
+// ───────────── Claude Code's background sessions ─────────────
+
+/** A running background session of Claude Code (`claude agents --json`). */
+export interface BackgroundSession {
+  /** Short id that `claude attach` / `claude stop` take. */
+  id: string;
+  sessionId: string;
+  pid: number;
+  idle: boolean;
+}
+
+/** A background session's short id: hex only, so it is safe to type in any shell. */
+export function isBackgroundId(v: unknown): v is string {
+  return typeof v === 'string' && /^[0-9a-f]{6,16}$/i.test(v);
+}
+
+/**
+ * The running background sessions in `claude agents --json` (Claude Code's own format, read tolerantly: anything
+ * unexpected is skipped and nothing here throws). A stopped one is still listed but has no pid.
+ */
+export function parseBackgroundSessions(json: string): BackgroundSession[] {
+  let list: unknown;
+  try {
+    list = JSON.parse(json);
+  } catch {
+    return [];
+  }
+  if (!Array.isArray(list)) return [];
+  const out: BackgroundSession[] = [];
+  for (const o of list as unknown[]) {
+    if (!o || typeof o !== 'object') continue;
+    const e = o as Record<string, unknown>;
+    if (e.kind !== 'background' || !isBackgroundId(e.id) || !isSessionId(e.sessionId)) continue;
+    if (typeof e.pid !== 'number' || !Number.isInteger(e.pid) || e.pid <= 0) continue;
+    out.push({ id: e.id, sessionId: e.sessionId, pid: e.pid, idle: e.status === 'idle' });
+  }
+  return out;
 }
 
 // ───────────── Claude Code's session files ─────────────

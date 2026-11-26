@@ -119,7 +119,8 @@ export function buildLaunch(o: LaunchOptions): Launch {
       delete env.ATELIER_CWD;
       let cmdline = '';
       if (o.claudeExe && env.ATELIER_CLAUDE_SETTINGS) {
-        cmdline = `/k doskey claude="${o.claudeExe}" --settings "${env.ATELIER_CLAUDE_SETTINGS}" --mcp-config "${env.ATELIER_CLAUDE_MCP}" $*`;
+        // --settings after the variadic --mcp-config ends its list (`claude attach <id>`, `claude "prompt"`).
+        cmdline = `/k doskey claude="${o.claudeExe}" --mcp-config "${env.ATELIER_CLAUDE_MCP}" --settings "${env.ATELIER_CLAUDE_SETTINGS}" $*`;
       }
       const extra = profile.args.join(' ');
       return { file: profile.file, args: [cmdline, extra].filter(Boolean).join(' '), cwd: o.cwd, env };

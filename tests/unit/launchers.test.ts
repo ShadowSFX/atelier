@@ -9,6 +9,7 @@ import {
   isInsidePath,
   isSessionId,
   LAUNCHERS,
+  parseBackgroundSessions,
   parseSessionHeadTail,
 } from '@shared/launchers';
 import { parseWorkspace } from '@shared/workspace';
@@ -35,6 +36,36 @@ describe('launchers', () => {
     expect(isSessionId(ID.toUpperCase())).toBe(true);
     expect(isSessionId('not-a-uuid')).toBe(false);
     expect(isSessionId(42)).toBe(false);
+  });
+
+  it('attaches to a background session only by a hex short id', () => {
+    expect(claudeCommand({ sessionId: ID }, 'a86a9a2f')).toBe('claude attach a86a9a2f');
+    expect(claudeCommand({ sessionId: ID }, null)).toBe(`claude --resume ${ID}`);
+    expect(claudeCommand({ sessionId: ID }, 'a86a; rm')).toBe(`claude --resume ${ID}`);
+    expect(claudeCommand({ sessionId: ID }, '$(id)')).toBe(`claude --resume ${ID}`);
+  });
+
+  it('reads the running background sessions from claude agents --json', () => {
+    const other = '57067a84-55c6-47d7-b626-711d2152d80e';
+    const json = JSON.stringify([
+      // stopped: still listed, no pid
+      { id: '57067a84', cwd: 'C:\\x', kind: 'background', sessionId: other, state: 'blocked' },
+      { pid: 35716, id: 'a86a9a2f', kind: 'background', sessionId: ID, status: 'idle', state: 'done' },
+      { pid: 2, id: 'b1b2b3b4', kind: 'background', sessionId: other, status: 'busy' },
+      { pid: 10528, kind: 'interactive', sessionId: ID, status: 'busy' },
+      { pid: 3, id: 'x; rm -rf', kind: 'background', sessionId: ID, status: 'idle' },
+      { pid: 4, id: 'c1c2c3c4', kind: 'background', sessionId: 'nope', status: 'idle' },
+      { pid: -1, id: 'd1d2d3d4', kind: 'background', sessionId: ID, status: 'idle' },
+      null,
+      'text',
+    ]);
+    expect(parseBackgroundSessions(json)).toEqual([
+      { id: 'a86a9a2f', sessionId: ID, pid: 35716, idle: true },
+      { id: 'b1b2b3b4', sessionId: other, pid: 2, idle: false },
+    ]);
+    expect(parseBackgroundSessions('not json')).toEqual([]);
+    expect(parseBackgroundSessions('{"id":"a86a9a2f"}')).toEqual([]);
+    expect(parseBackgroundSessions('')).toEqual([]);
   });
 
   it('sets Code Mode only for Code Mode, and lets only allowed variables through', () => {

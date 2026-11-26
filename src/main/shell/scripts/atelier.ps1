@@ -160,6 +160,8 @@ function global:prompt {
 }
 
 # `claude` inside Atelier talks to the sessions of this project only (see the Atelier hub).
+# --mcp-config takes several values: --settings after it ends that list, so a prompt or a subcommand (attach) isn't
+# read as one more config file.
 if ($env:ATELIER_CLAUDE_SETTINGS) {
   function global:claude {
     $exe = Get-Command claude -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
@@ -168,7 +170,7 @@ if ($env:ATELIER_CLAUDE_SETTINGS) {
     if ($args.Count -gt 0 -and $passthrough -contains $args[0]) {
       & $exe.Source @args
     } else {
-      & $exe.Source --settings $env:ATELIER_CLAUDE_SETTINGS --mcp-config $env:ATELIER_CLAUDE_MCP @args
+      & $exe.Source --mcp-config $env:ATELIER_CLAUDE_MCP --settings $env:ATELIER_CLAUDE_SETTINGS @args
     }
   }
 }

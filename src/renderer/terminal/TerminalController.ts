@@ -94,6 +94,10 @@ export class TerminalController {
   /** A launcher's command (`claude --resume …`), typed once the new shell shows its prompt (OSC 133;B). */
   private pendingRun: string | null = null;
   private runTimer = 0;
+  /** The current shell has shown its prompt (OSC 133;B) at least once. */
+  private promptSeen = false;
+  /** Counts spawns, so an await in one can tell that a newer one (restart) overtook it. */
+  private spawnGen = 0;
   /** The launch command was typed: the next shell prompt (OSC 133;A) means it ended. */
   private launched = false;
   private readonly listeners = new Set<Listener>();
@@ -278,6 +282,12 @@ export class TerminalController {
     clearTimeout(this.runTimer);
     this.pendingRun = null;
     this.launched = false;
+    this.promptSeen = false;
+    const gen = ++this.spawnGen;
+    // Alongside the shell's start: a session still running in Claude Code's background can't be resumed as is.
+    const prepared: Promise<{ attach: string | null }> = claude?.sessionId
+      ? api.invoke('claude:prepare-resume', claude.sessionId).catch(() => ({ attach: null }))
+      : Promise.resolve({ attach: null });
     patchRuntime(this.id, { status: 'starting', exitCode: undefined, error: undefined, ready: false });
     const cwd = terminal.lastCwd ?? project.path;
     const r = await api.invoke('pty:spawn', {
@@ -291,11 +301,6 @@ export class TerminalController {
     });
     // Closed meanwhile, or overtaken by a newer start (restart): that one reports.
     if (this.disposed || (!r.ok && r.error === 'cancelled')) return;
-    if (r.ok && claude) {
-      this.pendingRun = claudeCommand(claude);
-      // A shell without integration marks never sends OSC 133;B: type it anyway once it has had time to start.
-      this.runTimer = window.setTimeout(() => this.runPending(), LAUNCH_FALLBACK_MS);
-    }
     if (!r.ok) {
       patchRuntime(this.id, { status: 'failed', error: r.error });
       this.term.write(`\r\n\x1b[31m${t('term.spawnFailed', terminal.name, r.error)}\x1b[0m\r\n`);
@@ -307,6 +312,19 @@ export class TerminalController {
     if (r.cwdFallback) toast(t('term.cwdFallback', cwd), 'error');
     this.lastSize = '';
     this.fitNow(true);
+    if (claude) {
+      const { attach } = await prepared;
+      if (this.disposed || gen !== this.spawnGen) return; // closed or restarted meanwhile
+      // WSL runs its own Claude Code: Windows' background sessions are not its own.
+      this.pendingRun = claudeCommand(claude, r.kind === 'wsl' ? null : attach);
+      if (this.promptSeen) {
+        // The shell's prompt came while Claude Code was being asked: type it now.
+        window.setTimeout(() => this.runPending(), 0);
+      } else {
+        // A shell without integration marks never sends OSC 133;B: type it anyway once it has had time to start.
+        this.runTimer = window.setTimeout(() => this.runPending(), LAUNCH_FALLBACK_MS);
+      }
+    }
   }
 
   async restart(): Promise<void> {
@@ -664,6 +682,7 @@ export class TerminalController {
         const marker = this.term.registerMarker(0);
         this.promptEnd = marker ? { marker, x: this.term.buffer.active.cursorX } : null;
         this.command = null;
+        this.promptSeen = true;
         // The new shell is ready for input. Later, so the shell has handled this prompt before the keys arrive.
         if (this.pendingRun) window.setTimeout(() => this.runPending(), 0);
       } else if (kind === 'C') {
