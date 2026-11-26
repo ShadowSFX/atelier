@@ -118,6 +118,15 @@ async function main(): Promise<void> {
     log.error('claude integration files', err);
   }
   let claudeExe: string | null | undefined;
+  let claudeCheckedAt = 0;
+  /** Claude Code's executable; not finding it is asked again after a while (the user may install it meanwhile). */
+  const findClaude = (): string | null => {
+    if (claudeExe === undefined || (claudeExe === null && Date.now() - claudeCheckedAt > 30_000)) {
+      claudeExe = which('claude');
+      claudeCheckedAt = Date.now();
+    }
+    return claudeExe;
+  };
 
   const readRequests = new Map<number, (text: string | null) => void>();
   let nextRead = 1;
@@ -191,7 +200,7 @@ async function main(): Promise<void> {
       }
       return env;
     },
-    claudeExe: () => (claudeExe === undefined ? (claudeExe = which('claude')) : claudeExe),
+    claudeExe: findClaude,
     powerline: () => settings.get().powerlinePrompt,
   });
 
@@ -359,7 +368,7 @@ async function main(): Promise<void> {
   handle('claude:deliver-now', (id) => delivery.flush(id, true));
   handle('claude:shell-prompt', (id) => delivery.shellPrompt(id));
   handle('claude:seen', (id) => delivery.seen(id));
-  handle('claude:available', () => !!(claudeExe === undefined ? (claudeExe = which('claude')) : claudeExe));
+  handle('claude:available', () => !!findClaude());
   handle('claude:usage', () => usage.current());
   handle('claude:sessions', (projectPath) =>
     typeof projectPath === 'string' && projectPath ? listClaudeSessions(projectPath) : [],
@@ -367,7 +376,7 @@ async function main(): Promise<void> {
   let prepareResume: ((sessionId: string) => Promise<{ attach: string | null }>) | null = null;
   handle('claude:prepare-resume', (sessionId) => {
     if (!isSessionId(sessionId)) return { attach: null };
-    const exe = claudeExe === undefined ? (claudeExe = which('claude')) : claudeExe;
+    const exe = findClaude();
     if (!exe) return { attach: null };
     prepareResume ??= createResumePreparer(claudeRunner(exe, baseEnv()));
     return prepareResume(sessionId);

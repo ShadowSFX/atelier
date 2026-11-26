@@ -50,11 +50,13 @@ export async function listClaudeSessions(
   configDir = claudeConfigDir(),
 ): Promise<ClaudeSessionInfo[]> {
   const root = join(configDir, 'projects');
-  const prefix = claudeProjectDirName(projectPath);
+  // Windows paths reach Claude in any letter case ("desktop" and "Desktop" folders side by side): compare without it.
+  const fold = (s: string) => (/^[a-z]:/i.test(projectPath) ? s.toLowerCase() : s);
+  const prefix = fold(claudeProjectDirName(projectPath.replace(/[\\/]+$/, '')));
   let dirs: string[];
   try {
     dirs = (await readdir(root, { withFileTypes: true }))
-      .filter((d) => d.isDirectory() && (d.name === prefix || d.name.startsWith(prefix + '-')))
+      .filter((d) => d.isDirectory() && (fold(d.name) === prefix || fold(d.name).startsWith(prefix + '-')))
       .map((d) => join(root, d.name));
   } catch {
     return []; // Claude Code never ran here
