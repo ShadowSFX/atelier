@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { installerLeftovers, regValue, resolveDataDir, swapScript, type SwapPlan } from '@shared/portable';
+import {
+  installerLeftovers,
+  isAtelierShortcut,
+  regValue,
+  resolveDataDir,
+  shortcutNeedsRepair,
+  swapScript,
+  type SwapPlan,
+} from '@shared/portable';
 import { psQuote } from '@shared/shell';
 import {
   CHECKSUM_ASSET,
@@ -256,5 +264,37 @@ describe('psQuote', () => {
     expect(psQuote('C:\\a')).toBe(`'C:\\a'`);
     expect(psQuote(`it's`)).toBe(`'it''s'`);
     expect(psQuote('a\u2019b')).toBe(`'a\u2019\u2019b'`);
+  });
+});
+
+describe('Atelier shortcuts', () => {
+  const ID = 'com.shadowsfx.atelier';
+  const EXE = 'C:\\Users\\me\\Programs\\atelier\\Atelier.exe';
+  const good = { target: EXE, icon: EXE, iconIndex: 0, appUserModelId: ID };
+
+  it('recognizes its own shortcuts by app id or by Atelier.exe, and leaves others alone', () => {
+    expect(isAtelierShortcut({ target: 'C:\\x\\Other.exe', appUserModelId: ID }, ID)).toBe(true);
+    expect(isAtelierShortcut({ target: 'C:\\Temp\\nsjB46A.tmp\\app\\ATELIER.EXE' }, ID)).toBe(true);
+    expect(isAtelierShortcut({ target: 'C:\\cmder\\ConEmu64.exe' }, ID)).toBe(false);
+    expect(shortcutNeedsRepair({ target: 'C:\\cmder\\ConEmu64.exe' }, EXE, ID)).toBe(false);
+    expect(isAtelierShortcut({ target: '' }, ID)).toBe(false);
+  });
+
+  it('repairs one pointing at a per-launch temp copy (the blank taskbar icon)', () => {
+    const temp = 'C:\\Users\\me\\AppData\\Local\\Temp\\nsjB46A.tmp\\app\\Atelier.exe';
+    expect(shortcutNeedsRepair({ target: temp, icon: '', iconIndex: 0, appUserModelId: ID }, EXE, ID)).toBe(
+      true,
+    );
+  });
+
+  it('repairs a missing icon, another icon or a missing app id; a correct one is left as is', () => {
+    expect(shortcutNeedsRepair(good, EXE, ID)).toBe(false);
+    expect(shortcutNeedsRepair({ ...good, target: EXE.toLowerCase().replace(/\\/g, '/') }, EXE, ID)).toBe(
+      false,
+    );
+    expect(shortcutNeedsRepair({ ...good, icon: undefined }, EXE, ID)).toBe(true);
+    expect(shortcutNeedsRepair({ ...good, icon: 'C:\\old\\icon.ico' }, EXE, ID)).toBe(true);
+    expect(shortcutNeedsRepair({ ...good, iconIndex: 2 }, EXE, ID)).toBe(true);
+    expect(shortcutNeedsRepair({ ...good, appUserModelId: undefined }, EXE, ID)).toBe(true);
   });
 });

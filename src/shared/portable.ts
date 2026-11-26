@@ -150,3 +150,40 @@ export function resolveDataDir(opts: {
   if (canWrite(portableDir)) return { dir: portableDir, portable: true, fallback: false };
   return { dir: fallbackDir, portable: false, fallback: true };
 }
+
+// ───────────── Shortcuts ─────────────
+
+/** What Atelier reads from a .lnk (a subset of Electron's ShortcutDetails). */
+export interface ShortcutInfo {
+  target: string;
+  icon?: string;
+  iconIndex?: number;
+  appUserModelId?: string;
+}
+
+const winPath = (p: string) => p.replace(/\//g, '\\').toLowerCase();
+const baseName = (p: string) => winPath(p).split('\\').pop() ?? '';
+
+/**
+ * A shortcut is Atelier's when it carries Atelier's app id (the 0.1.0 setup's Start Menu entry) or starts an
+ * Atelier.exe (a pin or a hand-made shortcut). Anything else is left alone.
+ */
+export function isAtelierShortcut(s: ShortcutInfo, appId: string): boolean {
+  return s.appUserModelId === appId || baseName(s.target) === 'atelier.exe';
+}
+
+/**
+ * An Atelier shortcut that doesn't start the portable exe, or takes its icon from somewhere else. Windows matches the
+ * taskbar button to the shortcut with the window's app id and shows that shortcut's icon: one re-pointed at a copy
+ * unpacked in %TEMP% (a per-launch folder, deleted on exit) shows a blank one.
+ */
+export function shortcutNeedsRepair(s: ShortcutInfo, exe: string, appId: string): boolean {
+  if (!isAtelierShortcut(s, appId)) return false;
+  return (
+    winPath(s.target) !== winPath(exe) ||
+    !s.icon ||
+    winPath(s.icon) !== winPath(exe) ||
+    (s.iconIndex ?? 0) !== 0 ||
+    s.appUserModelId !== appId
+  );
+}

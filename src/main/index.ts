@@ -21,6 +21,7 @@ import { Notifier, registerAppId } from './notifier';
 import { ProfileRegistry, which } from './pty/profiles';
 import { baseEnv, PtyManager } from './pty/PtyManager';
 import { installShellScripts } from './shell/integration';
+import { repairShortcuts, setWindowAppDetails } from './shortcuts';
 import { StatsService } from './stats/StatsService';
 import { JsonStore } from './store/JsonStore';
 import { SnapshotStore } from './store/snapshots';
@@ -80,6 +81,12 @@ async function main(): Promise<void> {
   if (process.platform === 'win32' && !process.env.ATELIER_USER_DATA) {
     void registerAppId(APP_ID, app.isPackaged ? 'Atelier' : 'Atelier (dev)', userData);
   }
+  // The portable launcher (not the copy unpacked in %TEMP% that runs): the taskbar and shortcuts must point at it.
+  const portableExe =
+    process.platform === 'win32' && app.isPackaged && !process.env.ATELIER_USER_DATA
+      ? (process.env.PORTABLE_EXECUTABLE_FILE ?? null)
+      : null;
+  if (portableExe) repairShortcuts(portableExe, APP_ID);
 
   // ───────────── Stores ─────────────
   const settings = new JsonStore<Settings>(join(userData, 'settings.json'), parseSettings);
@@ -207,6 +214,7 @@ async function main(): Promise<void> {
   // ───────────── Window ─────────────
   const dark = nativeTheme.shouldUseDarkColors;
   win = createMainWindow(userData, dark);
+  if (portableExe) setWindowAppDetails(win, portableExe, APP_ID);
   const devUrl = !app.isPackaged ? process.env.ELECTRON_RENDERER_URL : undefined;
   const pageUrl = devUrl ?? pathToFileURL(join(__dirname, '../renderer/index.html')).href;
   setTrustedOrigin((url) => url.startsWith(devUrl ?? pageUrl.replace(/index\.html$/, '')));
