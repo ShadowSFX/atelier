@@ -29,6 +29,7 @@ writeFileSync(
     'if "%1"=="agents" goto agents',
     'if "%1"=="stop" goto stop',
     'echo FAKE-CLAUDE args=[%*] codemode=[%CLAUDE_CODE_EXPERIMENTAL_CODE_MODE%]',
+    '>>"%~dp0runs.txt" echo %*',
     'echo %* | findstr /c:"--resume" /c:" attach " >nul && exit /b 0',
     'ping -n 300 127.0.0.1 >nul',
     'exit /b 0',
@@ -57,9 +58,24 @@ const stoppedIds = () => {
     return [];
   }
 };
+/** The arguments of every interactive `claude` the fake ran, in order (a restored terminal's old text can't fool it). */
+const runs = () => {
+  try {
+    return readFileSync(join(fakeBin, 'runs.txt'), 'utf8').split(/\r?\n/).filter(Boolean);
+  } catch {
+    return [];
+  }
+};
 // One earlier session of the project, for the picker (Claude's folder naming: non-alphanumerics → "-").
 const sessionDir = join(claudeConfig, 'projects', project.replace(/[^a-zA-Z0-9]/g, '-'));
 mkdirSync(sessionDir, { recursive: true });
+// SESSION was used: it has a message to resume (untitled, so the picker below doesn't list it). EMPTY_SESSION was
+// opened and never typed into: Claude Code wrote no transcript, and `--resume` would refuse it.
+const EMPTY_SESSION = '7a1b2c3d-3333-4444-8555-666677778888';
+writeFileSync(
+  join(sessionDir, `${SESSION}.jsonl`),
+  JSON.stringify({ type: 'assistant', message: { content: 'done' } }) + '\n',
+);
 writeFileSync(
   join(sessionDir, `${OLD_SESSION}.jsonl`),
   [
@@ -156,13 +172,32 @@ test('launcher menu, Claude restore after a crash, session picker', async () => 
     .poll(() => savedTerminal(claude).claude)
     .toEqual({ sessionId: SESSION, codeMode: true, active: true });
 
+  // A plain Claude terminal nobody types into: its session id is recorded all the same.
+  await page.getByRole('button', { name: /Nueva terminal con|New terminal with/ }).click();
+  await page.getByRole('menuitem').nth(1).click();
+  await expect.poll(async () => (await ids(page)).length).toBe(3);
+  const empty = (await ids(page)).find((x) => x !== shell && x !== claude)!;
+  await waitText(page, empty, /FAKE-CLAUDE args=\[[^\]]*\] codemode=\[\]/);
+  await app.evaluate(
+    ({ BrowserWindow }, { id, sessionId }) =>
+      BrowserWindow.getAllWindows()[0]!.webContents.send('claude:session', id, {
+        sessionId,
+        codeMode: false,
+      }),
+    { id: empty, sessionId: EMPTY_SESSION },
+  );
+  await expect
+    .poll(() => savedTerminal(empty).claude)
+    .toEqual({ sessionId: EMPTY_SESSION, codeMode: false, active: true });
+  const runsBefore = runs().length;
+
   // Power cut: the process tree dies without closing anything.
   await crash(app);
 
   // Restart: the terminal resumes its session (Code Mode still on); the plain shell stays a shell. The session is
   // still running idle in Claude Code's background: it is stopped first, so the resume isn't refused.
   ({ app, page } = await launch());
-  await expect.poll(async () => (await ids(page)).sort()).toEqual([claude, shell].sort());
+  await expect.poll(async () => (await ids(page)).sort()).toEqual([claude, shell, empty].sort());
   await waitText(
     page,
     claude,
@@ -173,6 +208,12 @@ test('launcher menu, Claude restore after a crash, session picker', async () => 
   // The fake ends a resumed session at once: the shell prompt comes back and the session is no longer resumed.
   await expect.poll(() => savedTerminal(claude).claude?.active).toBe(false);
   expect(savedTerminal(claude).claude?.sessionId).toBe(SESSION);
+  // The empty session has nothing to resume: its terminal starts a new Claude session instead of a refused --resume.
+  await expect.poll(() => runs().slice(runsBefore).length, { timeout: 30_000 }).toBe(2);
+  const restarted = runs().slice(runsBefore);
+  expect(restarted.filter((a) => a.includes(`--resume ${SESSION}`))).toHaveLength(1);
+  expect(restarted.join('\n')).not.toContain(EMPTY_SESSION);
+  expect(restarted.filter((a) => !a.includes('--resume'))).toHaveLength(1);
 
   // The picker lists the project's earlier session; choosing it opens it in a new terminal. It is busy in Claude
   // Code's background, so the terminal attaches to it instead of stopping it.
@@ -182,8 +223,8 @@ test('launcher menu, Claude restore after a crash, session picker', async () => 
   await expect(row).toContainText('Parser refactor');
   await expect(row).toContainText('feature/x');
   await page.keyboard.press('Enter');
-  await expect.poll(async () => (await ids(page)).length).toBe(3);
-  const resumed = (await ids(page)).find((x) => x !== claude && x !== shell)!;
+  await expect.poll(async () => (await ids(page)).length).toBe(4);
+  const resumed = (await ids(page)).find((x) => x !== claude && x !== shell && x !== empty)!;
   await waitText(page, resumed, /FAKE-CLAUDE args=\[[^\]]*attach b0b0b0b0\] codemode=\[\]/);
   expect(stoppedIds()).toEqual(['a0a0a0a0']);
 

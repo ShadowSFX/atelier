@@ -285,9 +285,11 @@ export class TerminalController {
     this.promptSeen = false;
     const gen = ++this.spawnGen;
     // Alongside the shell's start: a session still running in Claude Code's background can't be resumed as is.
-    const prepared: Promise<{ attach: string | null }> = claude?.sessionId
-      ? api.invoke('claude:prepare-resume', claude.sessionId).catch(() => ({ attach: null }))
-      : Promise.resolve({ attach: null });
+    // A session nobody typed into has nothing to resume (`claude --resume` would refuse it): a new one starts.
+    const none = { attach: null, fresh: false };
+    const prepared: Promise<{ attach: string | null; fresh: boolean }> = claude?.sessionId
+      ? api.invoke('claude:prepare-resume', claude.sessionId).catch(() => none)
+      : Promise.resolve(none);
     patchRuntime(this.id, { status: 'starting', exitCode: undefined, error: undefined, ready: false });
     const cwd = terminal.lastCwd ?? project.path;
     const r = await api.invoke('pty:spawn', {
@@ -313,10 +315,11 @@ export class TerminalController {
     this.lastSize = '';
     this.fitNow(true);
     if (claude) {
-      const { attach } = await prepared;
+      const { attach, fresh } = await prepared;
       if (this.disposed || gen !== this.spawnGen) return; // closed or restarted meanwhile
-      // WSL runs its own Claude Code: Windows' background sessions are not its own.
-      this.pendingRun = claudeCommand(claude, r.kind === 'wsl' ? null : attach);
+      // WSL runs its own Claude Code: Windows' background sessions and transcripts are not its own.
+      const wsl = r.kind === 'wsl';
+      this.pendingRun = claudeCommand(fresh && !wsl ? { sessionId: null } : claude, wsl ? null : attach);
       if (this.promptSeen) {
         // The shell's prompt came while Claude Code was being asked: type it now.
         window.setTimeout(() => this.runPending(), 0);

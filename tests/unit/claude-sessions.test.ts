@@ -6,7 +6,8 @@ import { SESSIONS_MAX } from '@shared/constants';
 import { claudeProjectDirName } from '@shared/launchers';
 
 vi.mock('../../src/main/log', () => ({ log: { warn() {}, error() {}, info() {} } }));
-const { claudeConfigDir, listClaudeSessions } = await import('../../src/main/claude/sessions');
+const { claudeConfigDir, hasConversation, listClaudeSessions } =
+  await import('../../src/main/claude/sessions');
 
 const base = mkdtempSync(join(tmpdir(), 'atelier-sessions-'));
 afterAll(() => rmSync(base, { recursive: true, force: true }));
@@ -75,5 +76,53 @@ describe('listClaudeSessions', () => {
   it('uses CLAUDE_CONFIG_DIR when set', () => {
     expect(claudeConfigDir({ CLAUDE_CONFIG_DIR: '/cfg' })).toBe('/cfg');
     expect(claudeConfigDir({})).toMatch(/\.claude$/);
+  });
+});
+
+describe('hasConversation', () => {
+  const config = join(base, 'conv');
+  /** Writes `<config>/projects/<dir>/<id>.jsonl` with these lines. */
+  const write = (dir: string, id: string, lines: unknown[]) => {
+    mkdirSync(join(config, 'projects', dir), { recursive: true });
+    writeFileSync(
+      join(config, 'projects', dir, `${id}.jsonl`),
+      lines.map((l) => JSON.stringify(l) + '\n').join(''),
+    );
+  };
+
+  it('is true once the transcript holds a message, in whichever project folder', async () => {
+    const used = transcript(config, project, 'a task', 1);
+    expect(await hasConversation(used, config)).toBe(true);
+    const moved = uuid();
+    write('elsewhere', moved, [{ type: 'assistant', message: { content: 'hi' } }]);
+    expect(await hasConversation(moved, config)).toBe(true);
+  });
+
+  it('finds the message after a big first line', async () => {
+    const id = uuid();
+    write('big', id, [
+      { type: 'file-history-snapshot', snapshot: { note: 'z'.repeat(500_000), type: 'user' } },
+      { type: 'user', message: { content: 'go' } },
+    ]);
+    expect(await hasConversation(id, config)).toBe(true);
+  });
+
+  it('is false for a session nobody typed into', async () => {
+    expect(await hasConversation(uuid(), config)).toBe(false); // no transcript at all
+    const titled = uuid();
+    write('titled', titled, [
+      { type: 'ai-title', aiTitle: 'Latest fixes', sessionId: titled },
+      { type: 'agent-name', agentName: 'Latest fixes', sessionId: titled },
+    ]);
+    expect(await hasConversation(titled, config)).toBe(false);
+    const blank = uuid();
+    write('blank', blank, []);
+    expect(await hasConversation(blank, config)).toBe(false);
+    expect(await hasConversation(transcript(config, project, null, 1), config)).toBe(false); // opened, never used
+  });
+
+  it('is false when Claude Code never ran, null for an id that is not one', async () => {
+    expect(await hasConversation(uuid(), join(base, 'never'))).toBe(false);
+    expect(await hasConversation('../../etc/passwd', config)).toBeNull();
   });
 });

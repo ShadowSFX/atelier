@@ -12,8 +12,8 @@ import { parseSettings, type Settings } from '@shared/settings';
 import { liveUsage, type ClaudeUsage } from '@shared/usage';
 import { isSessionId, parseWorkspace, type Workspace } from '@shared/workspace';
 import { writeClaudeFiles, type ClaudeFiles } from './claude/integration';
-import { claudeRunner, createResumePreparer } from './claude/background';
-import { claudeConfigDir, listClaudeSessions } from './claude/sessions';
+import { claudeRunner, createResumePreparer, type ResumePlan } from './claude/background';
+import { claudeConfigDir, hasConversation, listClaudeSessions } from './claude/sessions';
 import { UsageService } from './claude/usage';
 import { ClipboardService } from './clipboard';
 import { Delivery } from './hub/Delivery';
@@ -406,12 +406,12 @@ async function main(): Promise<void> {
   handle('claude:sessions', (projectPath) =>
     typeof projectPath === 'string' && projectPath ? listClaudeSessions(projectPath) : [],
   );
-  let prepareResume: ((sessionId: string) => Promise<{ attach: string | null }>) | null = null;
+  let prepareResume: ((sessionId: string) => Promise<ResumePlan>) | null = null;
   handle('claude:prepare-resume', (sessionId) => {
-    if (!isSessionId(sessionId)) return { attach: null };
+    if (!isSessionId(sessionId)) return { attach: null, fresh: false };
     const exe = findClaude();
-    if (!exe) return { attach: null };
-    prepareResume ??= createResumePreparer(claudeRunner(exe, baseEnv()));
+    if (!exe) return { attach: null, fresh: false };
+    prepareResume ??= createResumePreparer(claudeRunner(exe, baseEnv()), Date.now, hasConversation);
     return prepareResume(sessionId);
   });
   handle('notify:show', (n) => notifier.show(n));

@@ -155,9 +155,10 @@ export interface Invoke {
   'claude:sessions': (projectPath: string) => ClaudeSessionInfo[];
   /**
    * Before resuming a session: one still running in Claude Code's background is stopped when idle (attach = null,
-   * resume as usual) or, when busy, its short id comes back to `claude attach` to.
+   * resume as usual) or, when busy, its short id comes back to `claude attach` to. `fresh`: it has no conversation
+   * (opened and closed without typing anything), so `claude --resume` would refuse it: a new session starts instead.
    */
-  'claude:prepare-resume': (sessionId: string) => { attach: string | null };
+  'claude:prepare-resume': (sessionId: string) => { attach: string | null; fresh: boolean };
   'term:read-reply': (reqId: number, text: string | null) => void;
   /** Shows a desktop notification; false when the system can't show one. */
   'notify:show': (n: NotifyRequest) => boolean;

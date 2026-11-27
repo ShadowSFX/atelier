@@ -1,6 +1,7 @@
 import { open, readdir, stat } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { basename, join } from 'node:path';
+import { StringDecoder } from 'node:string_decoder';
 import { SESSIONS_MAX, SESSIONS_READ_BYTES } from '@shared/constants';
 import {
   claudeProjectDirName,
@@ -114,4 +115,79 @@ export async function listClaudeSessions(
   // The same id in two folders (a moved transcript): keep the newest.
   const seen = new Set<string>();
   return out.filter((s): s is ClaudeSessionInfo => !!s && !seen.has(s.id) && !!seen.add(s.id));
+}
+
+/** A transcript line that is part of the conversation: Claude Code resumes only a transcript holding one. */
+function isMessageLine(line: string): boolean {
+  if (!line.includes('"user"') && !line.includes('"assistant"')) return false; // most lines, without parsing
+  try {
+    const type = (JSON.parse(line) as { type?: unknown } | null)?.type;
+    return type === 'user' || type === 'assistant';
+  } catch {
+    return false;
+  }
+}
+
+const SCAN_CHUNK = 64 * 1024;
+
+/** Reads a transcript from the start until its first conversation line (one chunk for nearly every transcript). */
+async function transcriptHasMessage(path: string): Promise<boolean> {
+  const fh = await open(path, 'r');
+  try {
+    const buf = Buffer.alloc(SCAN_CHUNK);
+    const decoder = new StringDecoder('utf8');
+    let parts: string[] = []; // the line read so far (a big snapshot line spans many chunks: joined once)
+    for (;;) {
+      const { bytesRead } = await fh.read(buf, 0, SCAN_CHUNK, null);
+      if (bytesRead === 0) return isMessageLine(parts.join('') + decoder.end());
+      const text = decoder.write(buf.subarray(0, bytesRead));
+      const nl = text.lastIndexOf('\n');
+      if (nl < 0) {
+        parts.push(text);
+        continue;
+      }
+      const lines = (parts.join('') + text.slice(0, nl)).split('\n');
+      if (lines.some(isMessageLine)) return true;
+      parts = [text.slice(nl + 1)];
+    }
+  } finally {
+    await fh.close();
+  }
+}
+
+/**
+ * Whether Claude Code can resume this session: a transcript of it (in any project folder: one may have moved) holds a
+ * message. A session opened and closed without typing anything has no transcript, or one with only its title, and
+ * `claude --resume` refuses it. null when it can't be told (a folder or file unreadable): resume as usual.
+ */
+export async function hasConversation(
+  sessionId: string,
+  configDir = claudeConfigDir(),
+): Promise<boolean | null> {
+  if (!isSessionId(sessionId)) return null;
+  const root = join(configDir, 'projects');
+  let dirs: string[];
+  try {
+    dirs = (await readdir(root, { withFileTypes: true })).filter((d) => d.isDirectory()).map((d) => d.name);
+  } catch (err) {
+    return (err as NodeJS.ErrnoException).code === 'ENOENT' ? false : null; // ENOENT: Claude Code never ran
+  }
+  let unsure = false;
+  const found = await Promise.all(
+    dirs.map(async (d) => {
+      const path = join(root, d, `${sessionId}.jsonl`);
+      try {
+        return await transcriptHasMessage(path);
+      } catch (err) {
+        const code = (err as NodeJS.ErrnoException).code;
+        if (code !== 'ENOENT' && code !== 'ENOTDIR') {
+          log.warn('claude transcript unreadable', path, err);
+          unsure = true;
+        }
+        return false;
+      }
+    }),
+  );
+  if (found.some(Boolean)) return true;
+  return unsure ? null : false;
 }

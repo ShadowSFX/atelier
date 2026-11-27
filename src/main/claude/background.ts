@@ -10,6 +10,14 @@ export interface RunOptions {
   signal?: AbortSignal;
 }
 
+/** How a terminal starts its saved Claude session again (claude:prepare-resume). */
+export interface ResumePlan {
+  /** Short id to `claude attach` to (a busy background session), or null. */
+  attach: string | null;
+  /** Nothing to resume: start a new session instead. */
+  fresh: boolean;
+}
+
 /** Runs Claude Code with `args` and resolves with its stdout (rejects on failure, timeout or abort). */
 export type ClaudeRunner = (args: string[], timeoutMs: number, opts?: RunOptions) => Promise<string>;
 
@@ -83,12 +91,14 @@ function killTree(child: ChildProcess): void {
  * Before a terminal resumes a Claude session: Claude Code refuses `--resume` for a session that is still running as a
  * background session (it outlives Atelier, with the old terminal's revoked hub token). An idle one is stopped (its
  * conversation is kept) so the terminal resumes it with a fresh hub connection; a busy one is attached to instead, so
- * its work isn't cut. `attach` is the short id to `claude attach`, or null to resume as usual.
+ * its work isn't cut. `attach` is the short id to `claude attach`, or null to resume as usual. `fresh`: the session
+ * has no conversation to resume (opened and closed without typing anything), so a new one is started instead.
  */
 export function createResumePreparer(
   run: ClaudeRunner,
   now: () => number = Date.now,
-): (sessionId: string) => Promise<{ attach: string | null }> {
+  hasConversation: (sessionId: string) => Promise<boolean | null> = async () => null,
+): (sessionId: string) => Promise<ResumePlan> {
   let listing: { at: number; promise: Promise<BackgroundSession[]> } | null = null;
 
   const list = (): Promise<BackgroundSession[]> => {
@@ -102,21 +112,28 @@ export function createResumePreparer(
   };
 
   return async (sessionId) => {
+    // Both at once: the transcript is read while Claude Code lists its background sessions.
+    const conversation = hasConversation(sessionId).catch(() => null);
+    const resume = async (): Promise<ResumePlan> => ({
+      attach: null,
+      fresh: (await conversation) === false, // unsure (null): resume as usual
+    });
     let live: BackgroundSession | undefined;
     try {
       live = (await list()).find((s) => s.sessionId === sessionId);
     } catch (err) {
       log.warn('claude agents --json failed', err);
-      return { attach: null };
+      return resume();
     }
-    if (!live) return { attach: null };
-    if (!live.idle) return { attach: live.id };
+    if (!live) return resume();
+    // Still running: Claude Code holds it, whatever its transcript says.
+    if (!live.idle) return { attach: live.id, fresh: false };
     try {
       await run(['stop', live.id], STOP_TIMEOUT_MS);
-      return { attach: null };
+      return resume();
     } catch (err) {
       log.warn('claude stop failed', live.id, err);
-      return { attach: live.id };
+      return { attach: live.id, fresh: false };
     }
   };
 }

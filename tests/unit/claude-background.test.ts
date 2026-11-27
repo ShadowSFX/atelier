@@ -63,13 +63,13 @@ function fakeRunner(opts: { list?: () => Promise<string>; stop?: () => Promise<s
 describe('createResumePreparer', () => {
   it('resumes as usual when the session is not running in the background', async () => {
     const { run, calls } = fakeRunner();
-    expect(await createResumePreparer(run)(NONE)).toEqual({ attach: null });
+    expect(await createResumePreparer(run)(NONE)).toEqual({ attach: null, fresh: false });
     expect(calls).toEqual([['agents', '--json']]);
   });
 
   it('stops an idle background session, then resumes it as usual', async () => {
     const { run, calls } = fakeRunner();
-    expect(await createResumePreparer(run)(IDLE)).toEqual({ attach: null });
+    expect(await createResumePreparer(run)(IDLE)).toEqual({ attach: null, fresh: false });
     expect(calls).toEqual([
       ['agents', '--json'],
       ['stop', 'a86a9a2f'],
@@ -78,12 +78,12 @@ describe('createResumePreparer', () => {
 
   it('attaches when stopping fails', async () => {
     const { run } = fakeRunner({ stop: () => Promise.reject(new Error('exit 1')) });
-    expect(await createResumePreparer(run)(IDLE)).toEqual({ attach: 'a86a9a2f' });
+    expect(await createResumePreparer(run)(IDLE)).toEqual({ attach: 'a86a9a2f', fresh: false });
   });
 
   it('attaches to a busy one without stopping it', async () => {
     const { run, calls } = fakeRunner();
-    expect(await createResumePreparer(run)(BUSY)).toEqual({ attach: '57067a84' });
+    expect(await createResumePreparer(run)(BUSY)).toEqual({ attach: '57067a84', fresh: false });
     expect(calls).toEqual([['agents', '--json']]);
   });
 
@@ -93,9 +93,9 @@ describe('createResumePreparer', () => {
       list: () => (fail ? Promise.reject(new Error('timeout')) : Promise.resolve(LISTING)),
     });
     const prepare = createResumePreparer(run, () => 0);
-    expect(await prepare(BUSY)).toEqual({ attach: null });
+    expect(await prepare(BUSY)).toEqual({ attach: null, fresh: false });
     fail = false;
-    expect(await prepare(BUSY)).toEqual({ attach: '57067a84' });
+    expect(await prepare(BUSY)).toEqual({ attach: '57067a84', fresh: false });
     expect(calls.filter((c) => c[0] === 'agents')).toHaveLength(2);
   });
 
@@ -108,5 +108,49 @@ describe('createResumePreparer', () => {
     now = 60_000;
     await prepare(NONE);
     expect(calls.filter((c) => c[0] === 'agents')).toHaveLength(2);
+  });
+
+  describe('a session with no conversation (opened, closed without typing)', () => {
+    const empty = async () => false;
+
+    it('starts a new session instead of resuming it', async () => {
+      const { run } = fakeRunner();
+      expect(await createResumePreparer(run, Date.now, empty)(NONE)).toEqual({ attach: null, fresh: true });
+    });
+
+    it('starts a new one after stopping it in the background too', async () => {
+      const { run } = fakeRunner();
+      expect(await createResumePreparer(run, Date.now, empty)(IDLE)).toEqual({ attach: null, fresh: true });
+    });
+
+    it('still attaches to it while it runs busy in the background', async () => {
+      const { run } = fakeRunner();
+      expect(await createResumePreparer(run, Date.now, empty)(BUSY)).toEqual({
+        attach: '57067a84',
+        fresh: false,
+      });
+    });
+
+    it('starts a new one when the background listing fails', async () => {
+      const { run } = fakeRunner({ list: () => Promise.reject(new Error('timeout')) });
+      expect(await createResumePreparer(run, Date.now, empty)(NONE)).toEqual({ attach: null, fresh: true });
+    });
+
+    it('resumes as usual when the transcript has a conversation, or it cannot be told', async () => {
+      const { run } = fakeRunner();
+      expect(await createResumePreparer(run, Date.now, async () => true)(NONE)).toEqual({
+        attach: null,
+        fresh: false,
+      });
+      expect(await createResumePreparer(run, Date.now, async () => null)(NONE)).toEqual({
+        attach: null,
+        fresh: false,
+      });
+      const failing = () => Promise.reject(new Error('EIO'));
+      expect(await createResumePreparer(run, Date.now, failing)(NONE)).toEqual({
+        attach: null,
+        fresh: false,
+      });
+    });
   });
 });
